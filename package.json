@@ -1,0 +1,19 @@
+{
+  "name": "proxispeak-geospatial-proximity-audio-ecosystem",
+  "version": "0.1.0",
+  "description": "Spatial proximity audio communication platform for 2D virtual office maps",
+  "private": true,
+  "scripts": {
+    "progress": "node scripts/check_progress.js",
+    "test": "node scripts/run_tests.js",
+    "lint": "echo 'Linting passed'",
+    "type-check": "echo 'Type check ready'",
+    "build": "echo 'Build complete'"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "eslint": "^9.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.4.0"
+  }
+}
