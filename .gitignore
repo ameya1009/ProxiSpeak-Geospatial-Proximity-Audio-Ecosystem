@@ -2,3 +2,7 @@ backend/node_modules/
 backend/.env
 backend/dist/
 backend/build/
+node_modules/
+.env
+dist/
+build/
