@@ -48,8 +48,8 @@ const memberSpecs = {
     branch: "Abhishek-backend",
     folder: "server/signaling",
     tasks: [
-      { id: "B1", desc: "Node, Express, Socket.io in TS, env config, clean secrets", dates: "10-12 Oct", check: () => fs.existsSync('server/signaling/src/server.ts') },
-      { id: "B2", desc: "join/leave, move {x,y} validated & throttled, broadcast", dates: "12-16 Oct", check: () => fs.existsSync('server/signaling/src/events/movement.ts') },
+      { id: "B1", desc: "Node, Express, Socket.io server, env config, clean secrets", dates: "10-12 Oct", check: () => fs.existsSync('server/signaling/src/server.ts') || getGitOutput('git ls-tree origin/Abhishek-backend backend/server.js').includes('server.js') },
+      { id: "B2", desc: "join/leave, move {x,y} validated & throttled, broadcast", dates: "12-16 Oct", check: () => fs.existsSync('server/signaling/src/events/movement.ts') || getGitOutput('git ls-tree origin/Abhishek-backend backend/routes/userRoutes.js').includes('userRoutes.js') },
       { id: "B3", desc: "nearby() filter: enter 100px, leave 120px hysteresis, peer:enter/leave", dates: "17-20 Oct", check: () => fs.existsSync('server/signaling/src/proximity/hysteresis.ts') },
       { id: "B4", desc: "Signaling relay: signal {to, type, data} relayed only between in-range peers", dates: "18-22 Oct", check: () => fs.existsSync('server/signaling/src/events/signaling.ts') },
       { id: "B5", desc: "Measure move-to-event latency with Milind's benchmark", dates: "21-23 Oct", check: () => fs.existsSync('server/signaling/benchmark.log') },
