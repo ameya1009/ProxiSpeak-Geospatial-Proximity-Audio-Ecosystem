@@ -1,5 +1,6 @@
 const assert = require('assert');
 const { calculateDistance, calculateGain, calculatePan, createTestTone } = require('../client/audio/src/AudioMixer');
+const { AudioSpikeRunner } = require('../client/audio/src/AudioSpikeRunner');
 
 console.log('--- Running Audio Spike Math & Attenuation Tests ---');
 
@@ -29,27 +30,33 @@ console.log('✔ Stereo panning & clamping: OK');
 
 // Test 4: Web Audio API Node Graph Wiring (Oscillator -> StereoPanner -> Gain -> Destination)
 const connectionChain = [];
+let gainSetVal = null;
+let panSetVal = null;
+
 const mockContext = {
-  currentTime: 0,
+  currentTime: 10,
   destination: { name: 'destination' },
   createOscillator() {
     const osc = {
       type: '',
       frequency: { setValueAtTime: (v) => { osc.freq = v; } },
       connect: (target) => { connectionChain.push({ from: 'oscillator', to: target.name || 'node' }); },
-      start: () => { osc.started = true; }
+      start: () => { osc.started = true; },
+      stop: () => { osc.stopped = true; }
     };
     return osc;
   },
   createStereoPanner() {
     return {
       name: 'panner',
+      pan: { setValueAtTime: (v) => { panSetVal = v; } },
       connect: (target) => { connectionChain.push({ from: 'panner', to: target.name || 'node' }); }
     };
   },
   createGain() {
     return {
       name: 'gain',
+      gain: { setValueAtTime: (v) => { gainSetVal = v; } },
       connect: (target) => { connectionChain.push({ from: 'gain', to: target.name || 'node' }); }
     };
   }
@@ -62,5 +69,36 @@ assert.deepStrictEqual(connectionChain[0], { from: 'oscillator', to: 'panner' })
 assert.deepStrictEqual(connectionChain[1], { from: 'panner', to: 'gain' });
 assert.deepStrictEqual(connectionChain[2], { from: 'gain', to: 'destination' });
 console.log('✔ Web Audio node graph routing & test tone instantiation: OK');
+
+// Test 5: AudioSpikeRunner driven by distance slider
+const runner = new AudioSpikeRunner(mockContext);
+runner.start(440);
+
+// Move distance slider to 0 px (center)
+const stateAt0 = runner.setDistanceSlider(0);
+assert.strictEqual(stateAt0.distance, 0);
+assert.strictEqual(stateAt0.gain, 1.0);
+assert.strictEqual(stateAt0.pan, 0.0);
+assert.strictEqual(gainSetVal, 1.0);
+assert.strictEqual(panSetVal, 0.0);
+
+// Move distance slider to 60 px right
+const stateAt60 = runner.setDistanceSlider(60);
+assert.strictEqual(stateAt60.distance, 60);
+assert.strictEqual(stateAt60.gain, 0.4);
+assert.strictEqual(stateAt60.pan, 0.6);
+assert.strictEqual(gainSetVal, 0.4);
+assert.strictEqual(panSetVal, 0.6);
+
+// Move distance slider to 100 px left (silent, hard left)
+const stateAt100 = runner.setDistanceSlider(-100);
+assert.strictEqual(stateAt100.distance, 100);
+assert.strictEqual(stateAt100.gain, 0.0);
+assert.strictEqual(stateAt100.pan, -1.0);
+assert.strictEqual(gainSetVal, 0.0);
+assert.strictEqual(panSetVal, -1.0);
+
+runner.stop();
+console.log('✔ AudioSpikeRunner distance slider behavior (gain attenuation & panning): OK');
 
 console.log('\nAll audio spike tests and edge-case assertions passed cleanly.');
