@@ -4,7 +4,16 @@
  * Simulates a distance slider adjusting gain and stereo panning for a continuous test tone.
  */
 
-const { calculateDistance, calculateGain, calculatePan, createTestTone } = require('./AudioMixer');
+const AudioMixer = (typeof require !== 'undefined')
+  ? require('./AudioMixer')
+  : (typeof window !== 'undefined' ? window.AudioMixer : {});
+
+const {
+  calculateDistance = (p1, p2) => Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2),
+  calculateGain = (d, r = 100) => (d >= r ? 0 : d <= 0 ? 1 : Math.max(0, 1 - d / r)),
+  calculatePan = (dx, r = 100) => Math.max(-r, Math.min(r, dx)) / r,
+  createTestTone
+} = AudioMixer;
 
 class AudioSpikeRunner {
   constructor(audioContext) {
@@ -69,4 +78,8 @@ class AudioSpikeRunner {
   }
 }
 
-module.exports = { AudioSpikeRunner };
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { AudioSpikeRunner };
+} else if (typeof window !== 'undefined') {
+  window.AudioSpikeRunner = AudioSpikeRunner;
+}

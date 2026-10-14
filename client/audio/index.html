@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ProxiSpeak Audio Spike - Web Audio Distance & Panning Simulator</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-hover: #0ea5e9;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 800px;
+      width: 100%;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.75rem;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+    }
+    header {
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1rem;
+    }
+    h1 { font-size: 1.5rem; color: var(--accent); margin-bottom: 0.25rem; }
+    p.subtitle { color: var(--text-muted); font-size: 0.9rem; }
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+    @media (max-width: 680px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+    .panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .btn-row {
+      display: flex;
+      gap: 0.75rem;
+    }
+    button {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #0f172a;
+    }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-danger {
+      background: #ef4444;
+      color: white;
+    }
+    .btn-danger:hover { background: #dc2626; }
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .slider-group {
+      background: #0f172a;
+      padding: 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .slider-group label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+    .slider-group input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .readouts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    .readout-card {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem;
+      text-align: center;
+    }
+    .readout-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .readout-value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-top: 0.25rem;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.6rem;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-align: center;
+      margin-top: 0.25rem;
+    }
+    .badge-in { background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid #22c55e; }
+    .badge-out { background: rgba(148, 163, 184, 0.2); color: #94a3b8; border: 1px solid #64748b; }
+    .canvas-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+    canvas {
+      background: #090d16;
+      border-radius: 6px;
+      border: 1px solid #1e293b;
+    }
+    .canvas-caption {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+      text-align: center;
+    }
+    footer {
+      margin-top: 1.5rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>ProxiSpeak Spatial Audio Spike</h1>
+      <p class="subtitle">Ameya's Deliverable (13–16 Oct) &bull; Web Audio API Graph: Oscillator &rarr; StereoPannerNode &rarr; GainNode &rarr; Destination</p>
+    </header>
+
+    <div class="layout">
+      <!-- Controls Panel -->
+      <div class="panel">
+        <div class="btn-row">
+          <button id="btnStart" class="btn-primary">▶ Start Test Tone (440Hz)</button>
+          <button id="btnStop" class="btn-danger" disabled>⏹ Stop</button>
+        </div>
+
+        <div class="slider-group">
+          <label>
+            <span>Relative X Offset (Panning &amp; Distance)</span>
+            <span id="lblDeltaX">0 px</span>
+          </label>
+          <input type="range" id="sliderDeltaX" min="-150" max="150" value="0" step="1">
+        </div>
+
+        <div class="slider-group">
+          <label>
+            <span>Relative Y Offset (Distance)</span>
+            <span id="lblDeltaY">0 px</span>
+          </label>
+          <input type="range" id="sliderDeltaY" min="-150" max="150" value="0" step="1">
+        </div>
+
+        <div class="readouts">
+          <div class="readout-card">
+            <div class="readout-label">Calculated Distance</div>
+            <div class="readout-value" id="valDist">0.0 px</div>
+          </div>
+          <div class="readout-card">
+            <div class="readout-label">Gain (Volume)</div>
+            <div class="readout-value" id="valGain">1.00</div>
+          </div>
+          <div class="readout-card">
+            <div class="readout-label">Stereo Panning</div>
+            <div class="readout-value" id="valPan">0.00 (Center)</div>
+          </div>
+          <div class="readout-card">
+            <div class="readout-label">Audibility</div>
+            <div id="badgeStatus" class="badge badge-in">IN EARSHOT (&le;100px)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Radar / Visual Simulation Panel -->
+      <div class="panel canvas-wrap">
+        <canvas id="radarCanvas" width="300" height="300"></canvas>
+        <div class="canvas-caption">
+          Blue: You (Listener at 0, 0) &bull; Red: Moving Peer &bull; Dashed Ring: 100px Earshot
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      Unit tested &bull; Bounded gain $G = \max(0, 1 - d/100)$ &bull; Pan $P = \text{clamp}(x/100, -1, 1)$ &bull; Group 15 ProxiSpeak
+    </footer>
+  </div>
+
+  <script src="src/AudioMixer.js"></script>
+  <script src="src/AudioSpikeRunner.js"></script>
+  <script>
+    let runner = null;
+    let audioCtx = null;
+
+    const btnStart = document.getElementById('btnStart');
+    const btnStop = document.getElementById('btnStop');
+    const sliderDeltaX = document.getElementById('sliderDeltaX');
+    const sliderDeltaY = document.getElementById('sliderDeltaY');
+    const lblDeltaX = document.getElementById('lblDeltaX');
+    const lblDeltaY = document.getElementById('lblDeltaY');
+    const valDist = document.getElementById('valDist');
+    const valGain = document.getElementById('valGain');
+    const valPan = document.getElementById('valPan');
+    const badgeStatus = document.getElementById('badgeStatus');
+    const canvas = document.getElementById('radarCanvas');
+    const ctx2d = canvas.getContext('2d');
+
+    const CENTER_X = canvas.width / 2;
+    const CENTER_Y = canvas.height / 2;
+    const SCALE = 1.0; // 1 pixel = 1 unit
+
+    function updateSimulation() {
+      const dx = parseFloat(sliderDeltaX.value);
+      const dy = parseFloat(sliderDeltaY.value);
+
+      lblDeltaX.textContent = `${dx > 0 ? '+' : ''}${dx} px`;
+      lblDeltaY.textContent = `${dy > 0 ? '+' : ''}${dy} px`;
+
+      let metrics = { distance: 0, gain: 1, pan: 0 };
+      if (runner) {
+        runner.setPeerPosition(dx, dy);
+        metrics = runner.updateAudio();
+      } else {
+        const d = Math.sqrt(dx * dx + dy * dy);
+        const g = d >= 100 ? 0 : Math.max(0, 1 - d / 100);
+        const p = Math.max(-1, Math.min(1, dx / 100));
+        metrics = { distance: d, gain: g, pan: p };
+      }
+
+      valDist.textContent = `${metrics.distance.toFixed(1)} px`;
+      valGain.textContent = `${(metrics.gain * 100).toFixed(0)}% (${metrics.gain.toFixed(2)})`;
+
+      if (metrics.pan < -0.05) {
+        valPan.textContent = `${metrics.pan.toFixed(2)} (Left)`;
+      } else if (metrics.pan > 0.05) {
+        valPan.textContent = `${metrics.pan.toFixed(2)} (Right)`;
+      } else {
+        valPan.textContent = `0.00 (Center)`;
+      }
+
+      if (metrics.distance <= 100) {
+        badgeStatus.className = 'badge badge-in';
+        badgeStatus.textContent = 'IN EARSHOT (<=100px)';
+      } else {
+        badgeStatus.className = 'badge badge-out';
+        badgeStatus.textContent = 'OUT OF RANGE (Silent)';
+      }
+
+      drawRadar(dx, dy, metrics.distance);
+    }
+
+    function drawRadar(dx, dy, dist) {
+      ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Grid / Crosshairs
+      ctx2d.strokeStyle = '#1e293b';
+      ctx2d.lineWidth = 1;
+      ctx2d.beginPath();
+      ctx2d.moveTo(CENTER_X, 0); ctx2d.lineTo(CENTER_X, canvas.height);
+      ctx2d.moveTo(0, CENTER_Y); ctx2d.lineTo(canvas.width, CENTER_Y);
+      ctx2d.stroke();
+
+      // 100px Earshot Circle
+      ctx2d.strokeStyle = dist <= 100 ? '#22c55e' : '#64748b';
+      ctx2d.lineWidth = 1.5;
+      ctx2d.setLineDash([4, 4]);
+      ctx2d.beginPath();
+      ctx2d.arc(CENTER_X, CENTER_Y, 100 * SCALE, 0, Math.PI * 2);
+      ctx2d.stroke();
+      ctx2d.setLineDash([]);
+
+      // Connection Line
+      ctx2d.strokeStyle = dist <= 100 ? 'rgba(56, 189, 248, 0.4)' : 'rgba(100, 116, 139, 0.2)';
+      ctx2d.lineWidth = 1.5;
+      ctx2d.beginPath();
+      ctx2d.moveTo(CENTER_X, CENTER_Y);
+      ctx2d.lineTo(CENTER_X + dx * SCALE, CENTER_Y + dy * SCALE);
+      ctx2d.stroke();
+
+      // Listener Avatar (Center)
+      ctx2d.fillStyle = '#38bdf8';
+      ctx2d.beginPath();
+      ctx2d.arc(CENTER_X, CENTER_Y, 7, 0, Math.PI * 2);
+      ctx2d.fill();
+
+      // Peer Avatar (Positioned)
+      ctx2d.fillStyle = dist <= 100 ? '#ef4444' : '#94a3b8';
+      ctx2d.beginPath();
+      ctx2d.arc(CENTER_X + dx * SCALE, CENTER_Y + dy * SCALE, 6, 0, Math.PI * 2);
+      ctx2d.fill();
+    }
+
+    btnStart.addEventListener('click', async () => {
+      const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+      if (!audioCtx) {
+        audioCtx = new AudioCtxClass();
+      }
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
+      if (!runner) {
+        runner = new window.AudioSpikeRunner(audioCtx);
+        runner.start(440);
+      }
+      btnStart.disabled = true;
+      btnStop.disabled = false;
+      updateSimulation();
+    });
+
+    btnStop.addEventListener('click', () => {
+      if (runner) {
+        runner.stop();
+        runner = null;
+      }
+      btnStart.disabled = false;
+      btnStop.disabled = true;
+      updateSimulation();
+    });
+
+    sliderDeltaX.addEventListener('input', updateSimulation);
+    sliderDeltaY.addEventListener('input', updateSimulation);
+
+    // Initial draw
+    updateSimulation();
+  </script>
+</body>
+</html>

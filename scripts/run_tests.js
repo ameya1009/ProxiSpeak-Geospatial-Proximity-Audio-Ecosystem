@@ -101,4 +101,30 @@ assert.strictEqual(panSetVal, -1.0);
 runner.stop();
 console.log('✔ AudioSpikeRunner distance slider behavior (gain attenuation & panning): OK');
 
-console.log('\nAll audio spike tests and edge-case assertions passed cleanly.');
+// Test 6: 2D Coordinate Movement (Diagonal distance & 2D panning)
+runner.start(440);
+runner.setListenerPosition(100, 100);
+const diagState = runner.setPeerPosition(130, 140); // dx = 30, dy = 40 => dist = 50
+assert.strictEqual(diagState.distance, 50, 'Diagonal distance = 50 px');
+assert.strictEqual(diagState.gain, 0.5, 'Gain at 50px = 0.5');
+assert.strictEqual(diagState.pan, 0.3, 'Pan for dx=30 / 100 = 0.3');
+runner.stop();
+console.log('✔ 2D diagonal distance and spatial panning: OK');
+
+// Test 7: Browser HTML UI and Paperwork Integrity
+const fs = require('fs');
+const path = require('path');
+const htmlPath = path.join(__dirname, '../client/audio/index.html');
+assert.strictEqual(fs.existsSync(htmlPath), true, 'client/audio/index.html exists');
+const htmlContent = fs.readFileSync(htmlPath, 'utf8');
+assert.strictEqual(htmlContent.includes('AudioMixer.js'), true, 'HTML references AudioMixer.js');
+assert.strictEqual(htmlContent.includes('AudioSpikeRunner.js'), true, 'HTML references AudioSpikeRunner.js');
+assert.strictEqual(htmlContent.includes('sliderDeltaX'), true, 'HTML contains sliderDeltaX');
+
+const vivaPath = path.join(__dirname, '../docs/VIVA_PREPARATION.md');
+assert.strictEqual(fs.existsSync(vivaPath), true, 'docs/VIVA_PREPARATION.md exists');
+const checkinPath = path.join(__dirname, '../docs/DAILY_CHECKINS.md');
+assert.strictEqual(fs.existsSync(checkinPath), true, 'docs/DAILY_CHECKINS.md exists');
+console.log('✔ Browser HTML UI, viva guide, and daily check-ins verification: OK');
+
+console.log('\nAll audio spike tests, browser integration, and edge-case assertions passed cleanly.');

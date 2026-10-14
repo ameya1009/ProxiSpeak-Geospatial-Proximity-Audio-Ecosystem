@@ -43,9 +43,18 @@ function createTestTone(audioContext, frequency = 440) {
   return { osc, gain, panner };
 }
 
-module.exports = {
-  calculateDistance,
-  calculateGain,
-  calculatePan,
-  createTestTone
-};
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    calculateDistance,
+    calculateGain,
+    calculatePan,
+    createTestTone
+  };
+} else if (typeof window !== 'undefined') {
+  window.AudioMixer = {
+    calculateDistance,
+    calculateGain,
+    calculatePan,
+    createTestTone
+  };
+}
