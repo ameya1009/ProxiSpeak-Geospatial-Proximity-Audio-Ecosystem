@@ -243,4 +243,68 @@ mixer.destroy();
 assert.strictEqual(mixer.peers.size, 0, 'All peers destroyed on shutdown');
 console.log('✔ Node disconnect, garbage collection, and clean shutdown: OK');
 
-console.log('\nAll 10 audio spike, SpatialAudioMixer, and multi-peer assertions passed cleanly.');
+// --- Test 11: AudioIntegrationClient Mock Mode & Proximity Hysteresis ---
+const { AudioIntegrationClient } = require('../client/audio/src/AudioIntegrationClient');
+
+const mockCtx3 = createMockAudioContext();
+const mixer3 = new SpatialAudioMixer(mockCtx3, { earshotRadius: 100, rampTime: 0 });
+const clientAmeya = new AudioIntegrationClient({
+  userId: 'user-ameya',
+  mixer: mixer3,
+  earshotRadius: 100,
+  leaveRadius: 120
+});
+
+let enteredPeer = null;
+let leftPeer = null;
+let offererDesignation = null;
+
+clientAmeya.on('peer:enter', (e) => {
+  enteredPeer = e.peerId;
+  offererDesignation = e.isOfferer;
+});
+clientAmeya.on('peer:leave', (e) => {
+  leftPeer = e.peerId;
+});
+
+const peerSourceBob = createMockSourceNode();
+
+// Bob is at (150, 0) -> outside earshot (dist = 150px)
+clientAmeya.setRemotePeerPosition('user-bob', 150, 0, peerSourceBob);
+assert.strictEqual(enteredPeer, null, 'Bob should not enter at 150px');
+assert.strictEqual(clientAmeya.inRangePeers.has('user-bob'), false);
+
+// Bob moves to (90, 0) -> within 100px earshot (dist = 90px)
+clientAmeya.setRemotePeerPosition('user-bob', 90, 0, peerSourceBob);
+assert.strictEqual(enteredPeer, 'user-bob', 'Bob entered earshot at 90px');
+assert.strictEqual(clientAmeya.inRangePeers.has('user-bob'), true);
+// Offerer check: 'user-ameya' < 'user-bob' => Ameya is the offerer!
+assert.strictEqual(offererDesignation, true, 'Ameya is designated offerer (lower userId)');
+
+// Bob moves to (110, 0) -> within hysteresis buffer (100px < d <= 120px)
+clientAmeya.setRemotePeerPosition('user-bob', 110, 0, peerSourceBob);
+assert.strictEqual(leftPeer, null, 'Bob should NOT leave in hysteresis zone (110px <= 120px)');
+assert.strictEqual(clientAmeya.inRangePeers.has('user-bob'), true);
+
+// Bob moves to (130, 0) -> beyond 120px leave radius
+clientAmeya.setRemotePeerPosition('user-bob', 130, 0, peerSourceBob);
+assert.strictEqual(leftPeer, 'user-bob', 'Bob left earshot beyond 120px');
+assert.strictEqual(clientAmeya.inRangePeers.has('user-bob'), false);
+console.log('✔ AudioIntegrationClient mock adapter, 100px/120px hysteresis, and lower-id offerer: OK');
+
+// --- Test 12: WebRTC Signaling Relay & Signal Dispatch ---
+// Bring Bob back into range
+clientAmeya.setRemotePeerPosition('user-bob', 50, 0, peerSourceBob);
+assert.strictEqual(clientAmeya.inRangePeers.has('user-bob'), true);
+
+let sentSignal = null;
+clientAmeya.on('signal:sent', (s) => { sentSignal = s; });
+
+const payload = clientAmeya.sendSignal('user-bob', 'offer', { sdp: 'dummy-offer-sdp' });
+assert.strictEqual(payload.to, 'user-bob');
+assert.strictEqual(payload.from, 'user-ameya');
+assert.strictEqual(payload.type, 'offer');
+assert.strictEqual(sentSignal.data.sdp, 'dummy-offer-sdp');
+console.log('✔ WebRTC signal dispatching & peer gating: OK');
+
+console.log('\nAll 12 audio spike, SpatialAudioMixer, multi-peer, and AudioIntegrationClient assertions passed cleanly.');
