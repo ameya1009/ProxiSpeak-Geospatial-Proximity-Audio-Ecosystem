@@ -127,4 +127,120 @@ const checkinPath = path.join(__dirname, '../docs/DAILY_CHECKINS.md');
 assert.strictEqual(fs.existsSync(checkinPath), true, 'docs/DAILY_CHECKINS.md exists');
 console.log('✔ Browser HTML UI, viva guide, and daily check-ins verification: OK');
 
-console.log('\nAll audio spike tests, browser integration, and edge-case assertions passed cleanly.');
+// --- SpatialAudioMixer Production Engine Tests (IAudioModule Contract) ---
+const { SpatialAudioMixer } = require('../client/audio/src/SpatialAudioMixer');
+
+function createMockAudioContext() {
+  const connections = [];
+  const disconnections = [];
+  return {
+    currentTime: 10,
+    destination: { name: 'destination' },
+    createStereoPanner() {
+      const p = {
+        name: 'panner',
+        pan: {
+          value: 0,
+          setValueAtTime: (v) => { p.pan.value = v; },
+          linearRampToValueAtTime: (v) => { p.pan.value = v; }
+        },
+        connect: (target) => { connections.push({ from: 'panner', to: target.name || 'node' }); },
+        disconnect: () => { disconnections.push('panner'); }
+      };
+      return p;
+    },
+    createGain() {
+      const g = {
+        name: 'gain',
+        gain: {
+          value: 1,
+          setValueAtTime: (v) => { g.gain.value = v; },
+          linearRampToValueAtTime: (v) => { g.gain.value = v; }
+        },
+        connect: (target) => { connections.push({ from: 'gain', to: target.name || 'node' }); },
+        disconnect: () => { disconnections.push('gain'); }
+      };
+      return g;
+    },
+    createMediaStreamSource(stream) {
+      const s = {
+        name: 'mediaSource',
+        connect: (target) => { connections.push({ from: 'mediaSource', to: target.name || 'node' }); },
+        disconnect: () => { disconnections.push('mediaSource'); }
+      };
+      return s;
+    },
+    connections,
+    disconnections
+  };
+}
+
+function createMockSourceNode() {
+  const node = {
+    name: 'mockSource',
+    connect: (target) => {},
+    disconnect: () => { node.disconnected = true; },
+    stop: () => { node.stopped = true; }
+  };
+  return node;
+}
+
+// Test 8: SpatialAudioMixer Multi-Peer Lifecycle & IAudioModule Contract
+const mockCtx2 = createMockAudioContext();
+const mixer = new SpatialAudioMixer(mockCtx2, { earshotRadius: 100, rampTime: 0 });
+
+const source1 = createMockSourceNode();
+const source2 = createMockSourceNode();
+const source3 = createMockSourceNode();
+
+mixer.addPeer('peer-1', source1, { x: 0, y: 50 });  // d = 50px
+mixer.addPeer('peer-2', source2, { x: 60, y: 0 });  // d = 60px
+mixer.addPeer('peer-3', source3, { x: 150, y: 0 }); // d = 150px (silent)
+
+const state1 = mixer.getPeerState('peer-1');
+assert.strictEqual(state1.distance, 50, 'Peer 1 distance = 50px');
+assert.strictEqual(state1.gain, 0.5, 'Peer 1 gain = 0.5');
+assert.strictEqual(state1.pan, 0.0, 'Peer 1 pan = 0.0');
+assert.strictEqual(state1.inEarshot, true, 'Peer 1 in earshot');
+
+const state2 = mixer.getPeerState('peer-2');
+assert.strictEqual(state2.distance, 60, 'Peer 2 distance = 60px');
+assert.strictEqual(state2.gain, 0.4, 'Peer 2 gain = 0.4');
+assert.strictEqual(state2.pan, 0.6, 'Peer 2 pan = 0.6 (Right)');
+assert.strictEqual(state2.inEarshot, true, 'Peer 2 in earshot');
+
+const state3 = mixer.getPeerState('peer-3');
+assert.strictEqual(state3.distance, 150, 'Peer 3 distance = 150px');
+assert.strictEqual(state3.gain, 0.0, 'Peer 3 gain = 0.0 (Silent beyond 100px)');
+assert.strictEqual(state3.inEarshot, false, 'Peer 3 out of earshot');
+console.log('✔ SpatialAudioMixer multi-peer initialization & distance gating: OK');
+
+// Test 9: setListenerPosition & dynamic coordinate recalculation
+mixer.setListenerPosition(50, 0); // Moved listener right by 50px
+const updatedState1 = mixer.getPeerState('peer-1');
+// Listener at (50, 0), Peer 1 at (0, 50) => dx = -50, dy = 50 => dist = sqrt(5000) ~ 70.71
+assert.strictEqual(Math.round(updatedState1.distance), 71, 'Peer 1 distance updated');
+assert.strictEqual(updatedState1.pan, -0.5, 'Peer 1 pan shifted left to -0.5');
+
+// Update Peer 2 position directly onto listener (50, 0)
+const state2Coincident = mixer.setPeerPosition('peer-2', 50, 0);
+assert.strictEqual(state2Coincident.distance, 0, 'Coincident distance = 0');
+assert.strictEqual(state2Coincident.gain, 1.0, 'Coincident gain = 1.0');
+assert.strictEqual(state2Coincident.pan, 0.0, 'Coincident pan = 0.0');
+
+// Mute toggle
+assert.strictEqual(mixer.setMuted(true), true);
+assert.strictEqual(mixer.setMuted(false), false);
+console.log('✔ Listener movements, peer repositioning, and mute toggles: OK');
+
+// Test 10: removePeer, node disconnect, and memory cleanup
+const removed = mixer.removePeer('peer-1');
+assert.strictEqual(removed, true, 'Peer 1 removed');
+assert.strictEqual(mixer.getPeerState('peer-1'), null, 'Peer 1 state cleaned from Map');
+assert.strictEqual(source1.disconnected, true, 'Peer 1 source disconnected');
+
+mixer.destroy();
+assert.strictEqual(mixer.peers.size, 0, 'All peers destroyed on shutdown');
+console.log('✔ Node disconnect, garbage collection, and clean shutdown: OK');
+
+console.log('\nAll 10 audio spike, SpatialAudioMixer, and multi-peer assertions passed cleanly.');

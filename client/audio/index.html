@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ProxiSpeak Audio Spike - Web Audio Distance & Panning Simulator</title>
+  <title>ProxiSpeak - Multi-Peer Spatial Audio Simulator</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -14,6 +14,7 @@
       --accent-hover: #0ea5e9;
       --success: #22c55e;
       --warning: #f59e0b;
+      --danger: #ef4444;
       --border: #334155;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -24,11 +25,11 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 2rem 1rem;
+      padding: 1.5rem 1rem;
       min-height: 100vh;
     }
     .container {
-      max-width: 800px;
+      max-width: 960px;
       width: 100%;
       background: var(--card-bg);
       border: 1px solid var(--border);
@@ -37,18 +38,18 @@
       box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
     }
     header {
-      margin-bottom: 1.5rem;
+      margin-bottom: 1.25rem;
       border-bottom: 1px solid var(--border);
       padding-bottom: 1rem;
     }
     h1 { font-size: 1.5rem; color: var(--accent); margin-bottom: 0.25rem; }
-    p.subtitle { color: var(--text-muted); font-size: 0.9rem; }
+    p.subtitle { color: var(--text-muted); font-size: 0.875rem; }
     .layout {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 1.5rem;
     }
-    @media (max-width: 680px) {
+    @media (max-width: 768px) {
       .layout { grid-template-columns: 1fr; }
     }
     .panel {
@@ -58,108 +59,96 @@
     }
     .btn-row {
       display: flex;
-      gap: 0.75rem;
+      gap: 0.5rem;
+      flex-wrap: wrap;
     }
     button {
-      flex: 1;
-      padding: 0.75rem 1rem;
-      font-size: 0.95rem;
+      padding: 0.6rem 0.9rem;
+      font-size: 0.85rem;
       font-weight: 600;
       border: none;
       border-radius: 6px;
       cursor: pointer;
       transition: all 0.2s ease;
     }
-    .btn-primary {
-      background: var(--accent);
-      color: #0f172a;
-    }
+    .btn-primary { background: var(--accent); color: #0f172a; }
     .btn-primary:hover { background: var(--accent-hover); }
-    .btn-danger {
-      background: #ef4444;
-      color: white;
-    }
+    .btn-danger { background: var(--danger); color: white; }
     .btn-danger:hover { background: #dc2626; }
-    button:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-    .slider-group {
-      background: #0f172a;
-      padding: 1rem;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-    }
-    .slider-group label {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      margin-bottom: 0.5rem;
-    }
-    .slider-group input[type="range"] {
-      width: 100%;
-      accent-color: var(--accent);
-      cursor: pointer;
-    }
-    .readouts {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.75rem;
-    }
-    .readout-card {
-      background: #0f172a;
+    .btn-secondary { background: #334155; color: #f8fafc; }
+    .btn-secondary:hover { background: #475569; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .radar-container {
+      position: relative;
+      background: #090d16;
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 0.75rem;
-      text-align: center;
-    }
-    .readout-label {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .readout-value {
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: var(--accent);
-      margin-top: 0.25rem;
-    }
-    .badge {
-      display: inline-block;
-      padding: 0.25rem 0.6rem;
-      border-radius: 9999px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      text-align: center;
-      margin-top: 0.25rem;
-    }
-    .badge-in { background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid #22c55e; }
-    .badge-out { background: rgba(148, 163, 184, 0.2); color: #94a3b8; border: 1px solid #64748b; }
-    .canvas-wrap {
       display: flex;
       flex-direction: column;
       align-items: center;
-      background: #0f172a;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1rem;
+      padding: 0.75rem;
     }
     canvas {
       background: #090d16;
       border-radius: 6px;
-      border: 1px solid #1e293b;
+      cursor: crosshair;
     }
-    .canvas-caption {
-      font-size: 0.8rem;
+    .canvas-legend {
+      display: flex;
+      gap: 1rem;
+      font-size: 0.75rem;
       color: var(--text-muted);
       margin-top: 0.5rem;
-      text-align: center;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .legend-item { display: flex; align-items: center; gap: 0.35rem; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .table-card {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+    th, td {
+      padding: 0.55rem 0.65rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      background: #1e293b;
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    tr:last-child td { border-bottom: none; }
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+    .badge-in { background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid #22c55e; }
+    .badge-out { background: rgba(148, 163, 184, 0.2); color: #94a3b8; border: 1px solid #64748b; }
+    .instructions {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+      background: #0f172a;
+      padding: 0.75rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
     }
     footer {
       margin-top: 1.5rem;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       color: var(--text-muted);
       text-align: center;
     }
@@ -168,135 +157,153 @@
 <body>
   <div class="container">
     <header>
-      <h1>ProxiSpeak Spatial Audio Spike</h1>
-      <p class="subtitle">Ameya's Deliverable (13–16 Oct) &bull; Web Audio API Graph: Oscillator &rarr; StereoPannerNode &rarr; GainNode &rarr; Destination</p>
+      <h1>ProxiSpeak Multi-Peer Spatial Audio Simulator</h1>
+      <p class="subtitle">Ameya's Deliverable &bull; Implementation of <code>IAudioModule</code> (<code>client/audio/src/SpatialAudioMixer.js</code>)</p>
     </header>
 
     <div class="layout">
-      <!-- Controls Panel -->
+      <!-- Radar Canvas Panel -->
       <div class="panel">
-        <div class="btn-row">
-          <button id="btnStart" class="btn-primary">▶ Start Test Tone (440Hz)</button>
-          <button id="btnStop" class="btn-danger" disabled>⏹ Stop</button>
+        <div class="radar-container">
+          <canvas id="radarCanvas" width="340" height="340"></canvas>
+          <div class="canvas-legend">
+            <span class="legend-item"><span class="legend-dot" style="background:#38bdf8;"></span> Listener (You)</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#ef4444;"></span> Peer A (440Hz)</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#f59e0b;"></span> Peer B (554Hz)</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#a855f7;"></span> Peer C (659Hz)</span>
+            <span class="legend-item"><span class="legend-dot" style="border:1px dashed #22c55e;"></span> 100px Earshot</span>
+          </div>
         </div>
-
-        <div class="slider-group">
-          <label>
-            <span>Relative X Offset (Panning &amp; Distance)</span>
-            <span id="lblDeltaX">0 px</span>
-          </label>
-          <input type="range" id="sliderDeltaX" min="-150" max="150" value="0" step="1">
-        </div>
-
-        <div class="slider-group">
-          <label>
-            <span>Relative Y Offset (Distance)</span>
-            <span id="lblDeltaY">0 px</span>
-          </label>
-          <input type="range" id="sliderDeltaY" min="-150" max="150" value="0" step="1">
-        </div>
-
-        <div class="readouts">
-          <div class="readout-card">
-            <div class="readout-label">Calculated Distance</div>
-            <div class="readout-value" id="valDist">0.0 px</div>
-          </div>
-          <div class="readout-card">
-            <div class="readout-label">Gain (Volume)</div>
-            <div class="readout-value" id="valGain">1.00</div>
-          </div>
-          <div class="readout-card">
-            <div class="readout-label">Stereo Panning</div>
-            <div class="readout-value" id="valPan">0.00 (Center)</div>
-          </div>
-          <div class="readout-card">
-            <div class="readout-label">Audibility</div>
-            <div id="badgeStatus" class="badge badge-in">IN EARSHOT (&le;100px)</div>
-          </div>
+        <div class="instructions">
+          💡 <strong>Interactive Controls:</strong><br>
+          &bull; Click and drag the <strong>Blue Listener</strong> to move around the office space.<br>
+          &bull; Click and drag any <strong>Colored Peer</strong> to reposition them in 2D space.<br>
+          &bull; Hear distance crossfades and left/right stereo panning smoothly transition in real time!
         </div>
       </div>
 
-      <!-- Radar / Visual Simulation Panel -->
-      <div class="panel canvas-wrap">
-        <canvas id="radarCanvas" width="300" height="300"></canvas>
-        <div class="canvas-caption">
-          Blue: You (Listener at 0, 0) &bull; Red: Moving Peer &bull; Dashed Ring: 100px Earshot
+      <!-- Controls & Multi-Peer State Table -->
+      <div class="panel">
+        <div class="btn-row">
+          <button id="btnStart" class="btn-primary">▶ Start Audio Engine</button>
+          <button id="btnStop" class="btn-danger" disabled>⏹ Stop</button>
+          <button id="btnAddPeer" class="btn-secondary" disabled>+ Add Peer</button>
+          <button id="btnRemovePeer" class="btn-secondary" disabled>- Remove Peer</button>
+        <div class="slider-box" style="background:#0f172a; padding:0.6rem 0.85rem; border-radius:8px; border:1px solid var(--border);">
+          <div style="display:flex; justify-content:space-between; font-size:0.78rem; color:var(--text-muted); margin-bottom:0.25rem;">
+            <span>Peer A Distance Slider (Relative X):</span>
+            <span id="lblDeltaX">50 px</span>
+          </div>
+          <input type="range" id="sliderDeltaX" min="-150" max="150" value="50" step="1" style="width:100%; accent-color:var(--accent); cursor:pointer;">
+        </div>
+
+        <div class="table-card">
+          <table>
+            <thead>
+              <tr>
+                <th>Peer</th>
+                <th>Pos (X, Y)</th>
+                <th>Distance</th>
+                <th>Gain</th>
+                <th>Pan</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="peerTableBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="instructions">
+          📐 <strong>Spatial Formulas Implemented:</strong><br>
+          &bull; <strong>Euclidean Distance:</strong> <code>d = &radic;(&Delta;x&sup2; + &Delta;y&sup2;)</code><br>
+          &bull; <strong>Linear Gain:</strong> <code>G = max(0, 1 - d / 100)</code> with smooth <code>linearRampToValueAtTime</code><br>
+          &bull; <strong>Stereo Pan:</strong> <code>P = clamp(&Delta;x / 100, -1, 1)</code> mapped to <code>StereoPannerNode</code>
         </div>
       </div>
     </div>
 
     <footer>
-      Unit tested &bull; Bounded gain $G = \max(0, 1 - d/100)$ &bull; Pan $P = \text{clamp}(x/100, -1, 1)$ &bull; Group 15 ProxiSpeak
+      Unit tested &bull; Zero external dependencies &bull; Web Audio API Graph &bull; Group 15 ProxiSpeak
     </footer>
   </div>
 
   <script src="src/AudioMixer.js"></script>
+  <script src="src/SpatialAudioMixer.js"></script>
   <script src="src/AudioSpikeRunner.js"></script>
   <script>
-    let runner = null;
     let audioCtx = null;
+    let mixer = null;
+    let isRunning = false;
+    let draggedEntity = null; // 'listener' or peerId
+
+    const PEER_PALETTE = [
+      { id: 'peer-alice', name: 'Alice', freq: 440, color: '#ef4444', x: 50, y: -40 },
+      { id: 'peer-bob', name: 'Bob', freq: 554.37, color: '#f59e0b', x: -60, y: 30 },
+      { id: 'peer-charlie', name: 'Charlie', freq: 659.25, color: '#a855f7', x: 120, y: 70 }
+    ];
+
+    let activePeers = [...PEER_PALETTE];
+    let listener = { x: 0, y: 0, color: '#38bdf8' };
+
+    const canvas = document.getElementById('radarCanvas');
+    const ctx2d = canvas.getContext('2d');
+    const CENTER_X = canvas.width / 2;
+    const CENTER_Y = canvas.height / 2;
 
     const btnStart = document.getElementById('btnStart');
     const btnStop = document.getElementById('btnStop');
-    const sliderDeltaX = document.getElementById('sliderDeltaX');
-    const sliderDeltaY = document.getElementById('sliderDeltaY');
-    const lblDeltaX = document.getElementById('lblDeltaX');
-    const lblDeltaY = document.getElementById('lblDeltaY');
-    const valDist = document.getElementById('valDist');
-    const valGain = document.getElementById('valGain');
-    const valPan = document.getElementById('valPan');
-    const badgeStatus = document.getElementById('badgeStatus');
-    const canvas = document.getElementById('radarCanvas');
-    const ctx2d = canvas.getContext('2d');
+    const btnAddPeer = document.getElementById('btnAddPeer');
+    const btnRemovePeer = document.getElementById('btnRemovePeer');
+    const tableBody = document.getElementById('peerTableBody');
 
-    const CENTER_X = canvas.width / 2;
-    const CENTER_Y = canvas.height / 2;
-    const SCALE = 1.0; // 1 pixel = 1 unit
-
-    function updateSimulation() {
-      const dx = parseFloat(sliderDeltaX.value);
-      const dy = parseFloat(sliderDeltaY.value);
-
-      lblDeltaX.textContent = `${dx > 0 ? '+' : ''}${dx} px`;
-      lblDeltaY.textContent = `${dy > 0 ? '+' : ''}${dy} px`;
-
-      let metrics = { distance: 0, gain: 1, pan: 0 };
-      if (runner) {
-        runner.setPeerPosition(dx, dy);
-        metrics = runner.updateAudio();
-      } else {
-        const d = Math.sqrt(dx * dx + dy * dy);
-        const g = d >= 100 ? 0 : Math.max(0, 1 - d / 100);
-        const p = Math.max(-1, Math.min(1, dx / 100));
-        metrics = { distance: d, gain: g, pan: p };
-      }
-
-      valDist.textContent = `${metrics.distance.toFixed(1)} px`;
-      valGain.textContent = `${(metrics.gain * 100).toFixed(0)}% (${metrics.gain.toFixed(2)})`;
-
-      if (metrics.pan < -0.05) {
-        valPan.textContent = `${metrics.pan.toFixed(2)} (Left)`;
-      } else if (metrics.pan > 0.05) {
-        valPan.textContent = `${metrics.pan.toFixed(2)} (Right)`;
-      } else {
-        valPan.textContent = `0.00 (Center)`;
-      }
-
-      if (metrics.distance <= 100) {
-        badgeStatus.className = 'badge badge-in';
-        badgeStatus.textContent = 'IN EARSHOT (<=100px)';
-      } else {
-        badgeStatus.className = 'badge badge-out';
-        badgeStatus.textContent = 'OUT OF RANGE (Silent)';
-      }
-
-      drawRadar(dx, dy, metrics.distance);
+    function createOscillatorSource(ctx, freq) {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime);
+      osc.start();
+      return osc;
     }
 
-    function drawRadar(dx, dy, dist) {
+    function updateSimulation() {
+      if (mixer) {
+        mixer.setListenerPosition(listener.x, listener.y);
+      }
+
+      tableBody.innerHTML = '';
+      activePeers.forEach(p => {
+        let metrics;
+        if (mixer && mixer.getPeerState(p.id)) {
+          metrics = mixer.getPeerState(p.id);
+        } else {
+          const dx = p.x - listener.x;
+          const dy = p.y - listener.y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          const g = d >= 100 ? 0 : Math.max(0, 1 - d / 100);
+          const pan = Math.max(-1, Math.min(1, dx / 100));
+          metrics = { distance: d, gain: g, pan: pan, inEarshot: d <= 100 };
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong style="color:${p.color}">${p.name}</strong> (${p.freq.toFixed(0)}Hz)</td>
+          <td>(${p.x}, ${p.y})</td>
+          <td>${metrics.distance.toFixed(1)} px</td>
+          <td>${(metrics.gain * 100).toFixed(0)}%</td>
+          <td>${metrics.pan.toFixed(2)}</td>
+          <td><span class="badge ${metrics.inEarshot ? 'badge-in' : 'badge-out'}">${metrics.inEarshot ? 'EARSHOT' : 'SILENT'}</span></td>
+        `;
+        tableBody.appendChild(tr);
+      });
+
+      drawRadar();
+    }
+
+    function drawRadar() {
       ctx2d.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Grid / Crosshairs
+      // Coordinate axes
       ctx2d.strokeStyle = '#1e293b';
       ctx2d.lineWidth = 1;
       ctx2d.beginPath();
@@ -304,67 +311,188 @@
       ctx2d.moveTo(0, CENTER_Y); ctx2d.lineTo(canvas.width, CENTER_Y);
       ctx2d.stroke();
 
-      // 100px Earshot Circle
-      ctx2d.strokeStyle = dist <= 100 ? '#22c55e' : '#64748b';
+      // 100px Earshot Ring around Listener
+      ctx2d.strokeStyle = '#22c55e';
       ctx2d.lineWidth = 1.5;
       ctx2d.setLineDash([4, 4]);
       ctx2d.beginPath();
-      ctx2d.arc(CENTER_X, CENTER_Y, 100 * SCALE, 0, Math.PI * 2);
+      ctx2d.arc(CENTER_X + listener.x, CENTER_Y + listener.y, 100, 0, Math.PI * 2);
       ctx2d.stroke();
       ctx2d.setLineDash([]);
 
-      // Connection Line
-      ctx2d.strokeStyle = dist <= 100 ? 'rgba(56, 189, 248, 0.4)' : 'rgba(100, 116, 139, 0.2)';
-      ctx2d.lineWidth = 1.5;
-      ctx2d.beginPath();
-      ctx2d.moveTo(CENTER_X, CENTER_Y);
-      ctx2d.lineTo(CENTER_X + dx * SCALE, CENTER_Y + dy * SCALE);
-      ctx2d.stroke();
+      // Draw Peers and vectors
+      activePeers.forEach(p => {
+        const px = CENTER_X + p.x;
+        const py = CENTER_Y + p.y;
+        const lx = CENTER_X + listener.x;
+        const ly = CENTER_Y + listener.y;
 
-      // Listener Avatar (Center)
-      ctx2d.fillStyle = '#38bdf8';
+        const dist = Math.sqrt((p.x - listener.x) ** 2 + (p.y - listener.y) ** 2);
+        const inRange = dist <= 100;
+
+        // Line to listener
+        ctx2d.strokeStyle = inRange ? p.color : 'rgba(100, 116, 139, 0.25)';
+        ctx2d.lineWidth = inRange ? 2 : 1;
+        ctx2d.beginPath();
+        ctx2d.moveTo(lx, ly);
+        ctx2d.lineTo(px, py);
+        ctx2d.stroke();
+
+        // Peer Dot
+        ctx2d.fillStyle = p.color;
+        ctx2d.beginPath();
+        ctx2d.arc(px, py, 7, 0, Math.PI * 2);
+        ctx2d.fill();
+
+        // Peer Label
+        ctx2d.fillStyle = p.color;
+        ctx2d.font = '10px -apple-system, sans-serif';
+        ctx2d.fillText(p.name, px + 9, py + 3);
+      });
+
+      // Listener Dot (User)
+      const lx = CENTER_X + listener.x;
+      const ly = CENTER_Y + listener.y;
+      ctx2d.fillStyle = listener.color;
       ctx2d.beginPath();
-      ctx2d.arc(CENTER_X, CENTER_Y, 7, 0, Math.PI * 2);
+      ctx2d.arc(lx, ly, 9, 0, Math.PI * 2);
       ctx2d.fill();
 
-      // Peer Avatar (Positioned)
-      ctx2d.fillStyle = dist <= 100 ? '#ef4444' : '#94a3b8';
-      ctx2d.beginPath();
-      ctx2d.arc(CENTER_X + dx * SCALE, CENTER_Y + dy * SCALE, 6, 0, Math.PI * 2);
-      ctx2d.fill();
+      ctx2d.fillStyle = '#ffffff';
+      ctx2d.font = 'bold 10px -apple-system, sans-serif';
+      ctx2d.fillText('YOU', lx - 11, ly - 12);
     }
 
+    // Mouse Dragging Interaction
+    canvas.addEventListener('mousedown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left - CENTER_X;
+      const mouseY = e.clientY - rect.top - CENTER_Y;
+
+      // Check click on listener
+      if (Math.hypot(mouseX - listener.x, mouseY - listener.y) <= 15) {
+        draggedEntity = 'listener';
+        return;
+      }
+
+      // Check click on peers
+      for (const p of activePeers) {
+        if (Math.hypot(mouseX - p.x, mouseY - p.y) <= 15) {
+          draggedEntity = p.id;
+          return;
+        }
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!draggedEntity) return;
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = Math.round(e.clientX - rect.left - CENTER_X);
+      const mouseY = Math.round(e.clientY - rect.top - CENTER_Y);
+
+      const boundedX = Math.max(-140, Math.min(140, mouseX));
+      const boundedY = Math.max(-140, Math.min(140, mouseY));
+
+      if (draggedEntity === 'listener') {
+        listener.x = boundedX;
+        listener.y = boundedY;
+      } else {
+        const peer = activePeers.find(p => p.id === draggedEntity);
+        if (peer) {
+          peer.x = boundedX;
+          peer.y = boundedY;
+          if (mixer) {
+            mixer.setPeerPosition(peer.id, peer.x, peer.y);
+          }
+        }
+      }
+      updateSimulation();
+    });
+
+    window.addEventListener('mouseup', () => {
+      draggedEntity = null;
+    });
+
+    // Start / Stop controls
     btnStart.addEventListener('click', async () => {
       const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
-      if (!audioCtx) {
-        audioCtx = new AudioCtxClass();
+      if (!audioCtx) audioCtx = new AudioCtxClass();
+      if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+      if (!mixer) {
+        mixer = new window.SpatialAudioMixer(audioCtx, { earshotRadius: 100, rampTime: 0.05 });
+        activePeers.forEach(p => {
+          const osc = createOscillatorSource(audioCtx, p.freq);
+          mixer.addPeer(p.id, osc, { x: p.x, y: p.y });
+        });
+        mixer.setListenerPosition(listener.x, listener.y);
       }
-      if (audioCtx.state === 'suspended') {
-        await audioCtx.resume();
-      }
-      if (!runner) {
-        runner = new window.AudioSpikeRunner(audioCtx);
-        runner.start(440);
-      }
+
       btnStart.disabled = true;
       btnStop.disabled = false;
+      btnAddPeer.disabled = false;
+      btnRemovePeer.disabled = false;
+      isRunning = true;
       updateSimulation();
     });
 
     btnStop.addEventListener('click', () => {
-      if (runner) {
-        runner.stop();
-        runner = null;
+      if (mixer) {
+        mixer.destroy();
+        mixer = null;
       }
       btnStart.disabled = false;
       btnStop.disabled = true;
+      btnAddPeer.disabled = true;
+      btnRemovePeer.disabled = true;
+      isRunning = false;
       updateSimulation();
     });
 
-    sliderDeltaX.addEventListener('input', updateSimulation);
-    sliderDeltaY.addEventListener('input', updateSimulation);
+    btnAddPeer.addEventListener('click', () => {
+      const idx = activePeers.length + 1;
+      const newPeer = {
+        id: `peer-${idx}`,
+        name: `Peer ${idx}`,
+        freq: 440 + idx * 75,
+        color: ['#06b6d4', '#ec4899', '#10b981', '#f97316'][idx % 4],
+        x: Math.round((Math.random() - 0.5) * 160),
+        y: Math.round((Math.random() - 0.5) * 160)
+      };
+      activePeers.push(newPeer);
+      if (mixer && audioCtx) {
+        const osc = createOscillatorSource(audioCtx, newPeer.freq);
+        mixer.addPeer(newPeer.id, osc, { x: newPeer.x, y: newPeer.y });
+      }
+      updateSimulation();
+    });
 
-    // Initial draw
+    btnRemovePeer.addEventListener('click', () => {
+      if (activePeers.length <= 1) return;
+      const removed = activePeers.pop();
+      if (mixer) {
+        mixer.removePeer(removed.id);
+      }
+      updateSimulation();
+    });
+
+    const sliderDeltaX = document.getElementById('sliderDeltaX');
+    const lblDeltaX = document.getElementById('lblDeltaX');
+    if (sliderDeltaX && lblDeltaX) {
+      sliderDeltaX.addEventListener('input', () => {
+        const val = parseInt(sliderDeltaX.value, 10);
+        lblDeltaX.textContent = `${val > 0 ? '+' : ''}${val} px`;
+        if (activePeers.length > 0) {
+          activePeers[0].x = val;
+          if (mixer) {
+            mixer.setPeerPosition(activePeers[0].id, activePeers[0].x, activePeers[0].y);
+          }
+        }
+        updateSimulation();
+      });
+    }
+
+    // Initial render
     updateSimulation();
   </script>
 </body>
