@@ -307,4 +307,137 @@ assert.strictEqual(payload.type, 'offer');
 assert.strictEqual(sentSignal.data.sdp, 'dummy-offer-sdp');
 console.log('✔ WebRTC signal dispatching & peer gating: OK');
 
-console.log('\nAll 12 audio spike, SpatialAudioMixer, multi-peer, and AudioIntegrationClient assertions passed cleanly.');
+// --- Test 13: WebRTCManager Initialization, STUN Config, and Media Management ---
+const { WebRTCManager, DEFAULT_ICE_SERVERS } = require('../client/audio/src/WebRTCManager');
+
+assert.strictEqual(DEFAULT_ICE_SERVERS.length >= 2, true, 'At least 2 Google STUN servers configured');
+assert.strictEqual(DEFAULT_ICE_SERVERS[0].urls.includes('stun.l.google.com'), true, 'Primary Google STUN server verified');
+
+function createMockRTCPeerConnection(config) {
+  const pc = {
+    config,
+    localDescription: null,
+    remoteDescription: null,
+    tracks: [],
+    iceCandidates: [],
+    closed: false,
+    addTrack(track, stream) {
+      pc.tracks.push({ track, stream });
+    },
+    async createOffer() {
+      return { type: 'offer', sdp: 'mock-offer-sdp' };
+    },
+    async createAnswer() {
+      return { type: 'answer', sdp: 'mock-answer-sdp' };
+    },
+    async setLocalDescription(desc) {
+      pc.localDescription = desc;
+    },
+    async setRemoteDescription(desc) {
+      pc.remoteDescription = desc;
+    },
+    async addIceCandidate(cand) {
+      pc.iceCandidates.push(cand);
+    },
+    close() {
+      pc.closed = true;
+    }
+  };
+  return pc;
+}
+
+const mockCtx4 = createMockAudioContext();
+const mixer4 = new SpatialAudioMixer(mockCtx4, { earshotRadius: 100, rampTime: 0 });
+
+let outboundSignals = [];
+const rtcAmeya = new WebRTCManager({
+  userId: 'user-ameya',
+  mixer: mixer4,
+  sendSignal: (to, type, data) => {
+    outboundSignals.push({ to, type, data });
+  },
+  peerConnectionFactory: (cfg) => createMockRTCPeerConnection(cfg)
+});
+
+// Set mock local stream
+const mockTrack = { kind: 'audio', enabled: true };
+const mockStream = { getAudioTracks: () => [mockTrack], tracks: [mockTrack] };
+rtcAmeya.setLocalStream(mockStream);
+
+// Test mute toggles
+rtcAmeya.setMuted(true);
+assert.strictEqual(mockTrack.enabled, false, 'Audio track disabled when muted');
+assert.strictEqual(rtcAmeya.isMuted, true);
+rtcAmeya.setMuted(false);
+assert.strictEqual(mockTrack.enabled, true, 'Audio track enabled when unmuted');
+assert.strictEqual(rtcAmeya.isMuted, false);
+console.log('✔ WebRTCManager STUN configuration, media stream management, and mute toggles: OK');
+
+// --- Test 14: Offer/Answer Lifecycle, Glare Avoidance, and Track Routing ---
+async function runWebRTCLifecycleTest() {
+  outboundSignals = [];
+
+  // 1. Connect to peer-bob (user-ameya < user-bob): Ameya MUST be the offerer
+  const peerBob = await rtcAmeya.connectPeer('user-bob', { x: 30, y: 40 });
+  assert.strictEqual(peerBob.isOfferer, true, 'Ameya is designated offerer for user-bob');
+  assert.strictEqual(outboundSignals.length, 1, 'Offer dispatched to signaling');
+  assert.strictEqual(outboundSignals[0].type, 'offer');
+  assert.strictEqual(outboundSignals[0].to, 'user-bob');
+  assert.strictEqual(peerBob.pc.localDescription.type, 'offer');
+
+  // Simulate peer-bob replying with an answer
+  await rtcAmeya.handleSignal({
+    from: 'user-bob',
+    type: 'answer',
+    data: { type: 'answer', sdp: 'remote-answer-sdp' }
+  });
+  assert.strictEqual(peerBob.pc.remoteDescription.type, 'answer', 'Remote answer set on RTCPeerConnection');
+
+  // Simulate remote track arrival -> SpatialAudioMixer wiring
+  const mockRemoteSourceNode = createMockSourceNode();
+  peerBob.pc.ontrack({ streams: [mockRemoteSourceNode], track: mockRemoteSourceNode });
+  assert.strictEqual(mixer4.peers.has('user-bob'), true, 'Remote stream automatically wired into SpatialAudioMixer');
+  const bobAudioState = mixer4.getPeerState('user-bob');
+  assert.strictEqual(bobAudioState.distance, 50, 'Bob spatial distance correctly calculated (30, 40)');
+  assert.strictEqual(bobAudioState.gain, 0.5, 'Bob gain attenuated to 50%');
+
+  // 2. Connect to peer-aaron (user-aaron < user-ameya): Ameya is NOT the offerer (awaits offer)
+  outboundSignals = [];
+  const peerAaron = await rtcAmeya.connectPeer('user-aaron', { x: 0, y: 20 });
+  assert.strictEqual(peerAaron.isOfferer, false, 'Ameya is passive receiver for lower-id user-aaron');
+  assert.strictEqual(outboundSignals.length, 0, 'No premature offer sent by higher-id client');
+
+  // Aaron sends an offer -> Ameya creates and sends answer
+  await rtcAmeya.handleSignal({
+    from: 'user-aaron',
+    type: 'offer',
+    data: { type: 'offer', sdp: 'aaron-offer-sdp' }
+  });
+  assert.strictEqual(outboundSignals.length, 1, 'Answer dispatched to aaron');
+  assert.strictEqual(outboundSignals[0].type, 'answer');
+  assert.strictEqual(outboundSignals[0].to, 'user-aaron');
+
+  // Test ICE candidate buffering & handling
+  await rtcAmeya.handleSignal({
+    from: 'user-aaron',
+    type: 'ice-candidate',
+    data: { candidate: 'candidate:1 1 UDP 2130706431 192.168.1.1 50000 typ host' }
+  });
+  assert.strictEqual(peerAaron.pc.iceCandidates.length, 1, 'ICE candidate received and added');
+
+  // 3. Disconnect peer
+  rtcAmeya.disconnectPeer('user-bob');
+  assert.strictEqual(peerBob.pc.closed, true, 'RTCPeerConnection closed');
+  assert.strictEqual(mixer4.peers.has('user-bob'), false, 'Peer removed from SpatialAudioMixer');
+
+  rtcAmeya.destroy();
+  assert.strictEqual(rtcAmeya.peers.size, 0, 'WebRTCManager cleanly shut down');
+  console.log('✔ Full WebRTC offer/answer handshake, glare avoidance, trickle ICE, and audio pipeline routing: OK');
+}
+
+runWebRTCLifecycleTest().then(() => {
+  console.log('\nAll 14 audio spike, SpatialAudioMixer, multi-peer, AudioIntegrationClient, and WebRTCManager assertions passed cleanly.');
+}).catch((err) => {
+  console.error('Test error:', err);
+  process.exit(1);
+});

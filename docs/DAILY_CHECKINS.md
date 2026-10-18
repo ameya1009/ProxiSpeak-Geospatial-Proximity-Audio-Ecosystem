@@ -80,3 +80,29 @@
   - Start Week 2 tasks on 17 October: Task A5 (WebRTC client manager: `getUserMedia`, per-peer `RTCPeerConnection`, lower user ID offerer rule, Google STUN server configuration).
 * **Blockers**:
   - None on Ameya's branch. Teammates' code arrival is safely decoupled through mock adapters.
+
+---
+
+### Check-in: 16–17 October 2026 (Week 2 Kickoff - Task A5 Initiation)
+* **Committed**:
+  - Initiated Week 2 sprint tasks on `Ameya's-branch` focusing on Task A5 (WebRTC client manager).
+  - Scaffolded `WebRTCManager` architecture: configured Google public STUN servers (`stun:stun.l.google.com:19302`), local stream acquisition via `getUserMedia`, and per-peer `RTCPeerConnection` tracking.
+  - Implemented the deterministic Glare Avoidance rule: lower user ID makes the offer ($\min(\text{localId}, \text{remoteId})$).
+* **Next**:
+  - Complete full bidirectional signaling negotiation (offer/answer exchange, trickle ICE candidates) and remote track auto-routing into `SpatialAudioMixer`.
+* **Blockers**:
+  - None on Ameya's module.
+
+---
+
+### Check-in: 17–18 October 2026 (Task A5 Completion & Verification)
+* **Committed**:
+  - Completed production `WebRTCManager` (`client/audio/src/WebRTCManager.js`) fulfilling all Task A5 specifications.
+  - Wires incoming WebRTC audio tracks (`ontrack`) directly into `SpatialAudioMixer` for spatial gain attenuation and stereo panning.
+  - Fully handles trickle ICE candidate buffering and signaling dispatch.
+  - Added WebRTC manager script integration in `client/audio/index.html`.
+  - Expanded unit test suite (`scripts/run_tests.js`) to 14 comprehensive tests verifying complete offer/answer negotiation, candidate buffering, glare avoidance, track routing, and STUN config.
+* **Next**:
+  - Task A6 preparation (19–23 Oct): Full end-to-end integration with Abhishek's backend signaling events and Harpreet's frontend canvas avatar movements.
+* **Blockers**:
+  - Waiting for Abhishek to fix the `userLocations` backend bug and Harpreet to push the canvas render loop. Mock adapters in `client/audio/` allow Ameya's branch to proceed without delay.
