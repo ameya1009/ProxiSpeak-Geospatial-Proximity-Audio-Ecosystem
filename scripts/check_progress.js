@@ -81,10 +81,10 @@ const memberSpecs = {
     folder: "client/world",
     tasks: [
       { id: "H1", desc: "Git onboarding: clone, branch, add name to README", dates: "10-11 Oct", check: () => fs.readFileSync('README.md', 'utf8').includes('Harpreet') },
-      { id: "H2", desc: "React app (Vite) with Canvas & requestAnimationFrame render loop", dates: "11-14 Oct", check: () => fs.existsSync('client/world/src/Canvas.tsx') || getGitOutput('git ls-tree origin/Harpreet---frontend index.html').includes('index.html') },
-      { id: "H3", desc: "Keyboard (WASD/arrows) & click-to-move, emit move {x,y}", dates: "14-16 Oct", check: () => fs.existsSync('client/world/src/controls/movement.ts') },
+      { id: "H2", desc: "React app (Vite) with Canvas & requestAnimationFrame render loop", dates: "11-14 Oct", check: () => fs.existsSync('client/world/src/Canvas.tsx') || getGitOutput('git ls-tree origin/Harpreet---frontend client/world/src/App.jsx').includes('App.jsx') },
+      { id: "H3", desc: "Keyboard (WASD/arrows) & click-to-move, emit move {x,y}", dates: "14-16 Oct", check: () => fs.existsSync('client/world/src/controls/movement.ts') || getGitOutput('git show origin/Harpreet---frontend:client/world/src/App.jsx').includes('handleKeyDown') },
       { id: "H4", desc: "Remote avatars interpolation (15 updates/sec), names, join screen", dates: "17-21 Oct", check: () => fs.existsSync('client/world/src/components/RemoteAvatars.tsx') },
-      { id: "H5", desc: "Draw 100px earshot ring, connected peers indicator, mute button", dates: "21-23 Oct", check: () => fs.existsSync('client/world/src/components/EarshotRing.tsx') },
+      { id: "H5", desc: "Draw 100px earshot ring, connected peers indicator, mute button", dates: "21-23 Oct", check: () => fs.existsSync('client/world/src/components/EarshotRing.tsx') || getGitOutput('git show origin/Harpreet---frontend:client/world/src/App.jsx').toLowerCase().includes('earshot') },
       { id: "H6", desc: "Keep drawing loop outside React state (use refs) for 60 FPS without stutter", dates: "24-25 Oct", check: () => fs.existsSync('client/world/src/hooks/useRenderLoop.ts') },
       { id: "H7", desc: "Offscreen canvas for static map, profile 60 FPS with 50 avatars", dates: "27-30 Oct", check: () => fs.existsSync('client/world/src/canvas/OffscreenMap.ts') },
       { id: "H8", desc: "Audio UI: per-peer volume indicator, mic permissions & error states", dates: "30 Oct - 1 Nov", check: () => fs.existsSync('client/world/src/components/AudioUI.tsx') },
