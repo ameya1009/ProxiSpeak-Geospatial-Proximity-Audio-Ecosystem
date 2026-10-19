@@ -435,9 +435,117 @@ async function runWebRTCLifecycleTest() {
   console.log('✔ Full WebRTC offer/answer handshake, glare avoidance, trickle ICE, and audio pipeline routing: OK');
 }
 
-runWebRTCLifecycleTest().then(() => {
-  console.log('\nAll 14 audio spike, SpatialAudioMixer, multi-peer, AudioIntegrationClient, and WebRTCManager assertions passed cleanly.');
-}).catch((err) => {
+// --- Test 15: ProximityIntegration Two-Browser Same-Machine Integration (Task A6) ---
+async function runProximityIntegrationTest() {
+  const { ProximityIntegration } = require('../client/audio/src/ProximityIntegration');
+
+  const mockCtxAlice = createMockAudioContext();
+  const mixerAlice = new SpatialAudioMixer(mockCtxAlice, { earshotRadius: 100, rampTime: 0 });
+
+  const mockCtxBob = createMockAudioContext();
+  const mixerBob = new SpatialAudioMixer(mockCtxBob, { earshotRadius: 100, rampTime: 0 });
+
+  const signalBus = {
+    listeners: new Map(),
+    emit(event, data) {
+      const list = this.listeners.get(event) || [];
+      for (const cb of list) cb(data);
+    },
+    on(event, cb) {
+      if (!this.listeners.has(event)) this.listeners.set(event, []);
+      this.listeners.get(event).push(cb);
+    }
+  };
+
+  const rtcAlice = new WebRTCManager({
+    userId: 'alice',
+    mixer: mixerAlice,
+    sendSignal: (to, type, data) => signalBus.emit('signal', { to, from: 'alice', type, data }),
+    peerConnectionFactory: (cfg) => createMockRTCPeerConnection(cfg)
+  });
+
+  const rtcBob = new WebRTCManager({
+    userId: 'bob',
+    mixer: mixerBob,
+    sendSignal: (to, type, data) => signalBus.emit('signal', { to, from: 'bob', type, data }),
+    peerConnectionFactory: (cfg) => createMockRTCPeerConnection(cfg)
+  });
+
+  const aliceClient = new ProximityIntegration({
+    userId: 'alice',
+    mixer: mixerAlice,
+    webrtcManager: rtcAlice,
+    initialPosition: { x: 100, y: 100 },
+    earshotRadius: 100,
+    leaveRadius: 120
+  });
+
+  const bobClient = new ProximityIntegration({
+    userId: 'bob',
+    mixer: mixerBob,
+    webrtcManager: rtcBob,
+    initialPosition: { x: 300, y: 100 },
+    earshotRadius: 100,
+    leaveRadius: 120
+  });
+
+  const aliceEvents = [];
+  const bobEvents = [];
+  aliceClient.on('peer:enter', (e) => aliceEvents.push({ type: 'enter', ...e }));
+  aliceClient.on('peer:leave', (e) => aliceEvents.push({ type: 'leave', ...e }));
+  bobClient.on('peer:enter', (e) => bobEvents.push({ type: 'enter', ...e }));
+  bobClient.on('peer:leave', (e) => bobEvents.push({ type: 'leave', ...e }));
+
+  // 1. Initial State: Distance = 200px (> 120px) -> Out of range
+  aliceClient.handleRemoteMove('bob', 300, 100);
+  bobClient.handleRemoteMove('alice', 100, 100);
+
+  assert.strictEqual(aliceClient.peers.get('bob').inRange, false, 'Bob initially out of range for Alice');
+  assert.strictEqual(bobClient.peers.get('alice').inRange, false, 'Alice initially out of range for Bob');
+  assert.strictEqual(aliceEvents.length, 0, 'No enter event yet');
+
+  // 2. Bob walks into Alice's earshot: x=160, y=100 (dist = 60px <= 100px)
+  bobClient.updateLocalPosition(160, 100);
+  aliceClient.handleRemoteMove('bob', 160, 100);
+
+  assert.strictEqual(aliceClient.peers.get('bob').inRange, true, 'Bob in range for Alice at 60px');
+  assert.strictEqual(bobClient.peers.get('alice').inRange, true, 'Alice in range for Bob at 60px');
+  assert.strictEqual(aliceEvents.length, 1, 'peer:enter fired for Alice');
+  assert.strictEqual(aliceEvents[0].isOfferer, true, 'Alice (lower ID) is the offerer');
+  assert.strictEqual(bobEvents[0].isOfferer, false, 'Bob (higher ID) is the receiver');
+
+  // 3. Bob moves within hysteresis band: x=210, y=100 (dist = 110px: 100px < d <= 120px)
+  bobClient.updateLocalPosition(210, 100);
+  aliceClient.handleRemoteMove('bob', 210, 100);
+  assert.strictEqual(aliceClient.peers.get('bob').inRange, true, 'Bob remains connected in hysteresis band (110px)');
+  assert.strictEqual(aliceEvents.length, 1, 'No spurious leave event triggered inside hysteresis band');
+
+  // 4. Bob walks away past leave threshold: x=230, y=100 (dist = 130px > 120px) -> WALKING AWAY CUTS SOUND
+  bobClient.updateLocalPosition(230, 100);
+  aliceClient.handleRemoteMove('bob', 230, 100);
+
+  assert.strictEqual(aliceClient.peers.get('bob').inRange, false, 'Bob marked out of range');
+  assert.strictEqual(aliceEvents.length, 2, 'peer:leave event fired on Alice');
+  assert.strictEqual(aliceEvents[1].type, 'leave', 'Walking away cuts sound');
+  assert.strictEqual(aliceEvents[1].distance, 130, 'Leave distance accurately captured');
+  assert.strictEqual(mixerAlice.peers.has('bob'), false, 'Bob removed from Alice SpatialAudioMixer');
+
+  // 5. Clean teardown
+  aliceClient.destroy();
+  bobClient.destroy();
+  assert.strictEqual(aliceClient.peers.size, 0);
+  assert.strictEqual(bobClient.peers.size, 0);
+
+  console.log('✔ ProximityIntegration: Canvas movement, peer:enter/leave triggers, lower-id offerer, and walking-away audio cut-off: OK');
+}
+
+async function runAll() {
+  await runWebRTCLifecycleTest();
+  await runProximityIntegrationTest();
+  console.log('\nAll 15 audio spike, SpatialAudioMixer, multi-peer, AudioIntegrationClient, WebRTCManager, and ProximityIntegration assertions passed cleanly.');
+}
+
+runAll().catch((err) => {
   console.error('Test error:', err);
   process.exit(1);
 });

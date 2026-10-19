@@ -152,3 +152,28 @@ $$P = \text{clamp}\left(\frac{\Delta x}{R_{\max}}, -1.0, 1.0\right)$$
   │  - Continuous distance attenuation and relative panning      │
   └──────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 7. Viva Focus: Two-Browser Integration & Proximity Gating (Task A6)
+
+### Q: How does the system fulfill the requirement: "Two browsers on the same machine communicate audio; walking away cuts the sound"?
+**Answer**:
+1. **Cross-Tab Mesh (`BroadcastChannel`)**: On a single machine, two browser tabs (e.g., User Alice and User Bob) open `mesh.html`. If the backend signaling server is offline or under development, they exchange coordinates and WebRTC signals through an HTML5 `BroadcastChannel` (`proxispeak_room_default-room`).
+2. **Proximity Triggering**: As either avatar moves on the HTML5 canvas using WASD or arrow keys, distance $d = \sqrt{\Delta x^2 + \Delta y^2}$ is evaluated.
+3. **Approaching ($\le 100\text{px}$)**:
+   - When distance drops below $100\text{px}$, `peer:enter` fires.
+   - The user with the lower ID (`alice` < `bob`) creates and sends an SDP offer.
+   - Bob responds with an SDP answer and ICE candidates are exchanged.
+   - The remote audio stream is automatically piped into Ameya's `SpatialAudioMixer` (`MediaStreamAudioSourceNode` $\to$ `StereoPannerNode` $\to$ `GainNode` $\to$ `destination`).
+4. **Walking Away ($> 120\text{px}$)**:
+   - When the user walks away beyond $120\text{px}$, `peer:leave` fires.
+   - The audio stream is immediately disconnected from the audio graph, instantly cutting the sound to zero.
+   - The `RTCPeerConnection` is closed and resources are garbage collected to prevent memory leaks.
+
+### Q: Why is a hysteresis buffer (100px enter, 120px leave) required instead of a single threshold?
+**Answer**:
+A single threshold (e.g. 100px) causes **connection flapping** or **rapid oscillation**:
+- If an avatar oscillates back and forth across 99px and 101px, a single threshold would repeatedly trigger WebRTC offer/answer renegotiation, ICE gathering, and audio graph connection/disconnection multiple times per second.
+- By introducing a 20px hysteresis band ($100\text{px} \to 120\text{px}$), once a peer enters at $\le 100\text{px}$, they remain connected and smoothly attenuated until they explicitly walk away beyond $120\text{px}$. Inside the $100\text{px} - 120\text{px}$ band, gain remains clamped at 0.0 (silent), preventing abrupt audio reconnection or connection churn.
+

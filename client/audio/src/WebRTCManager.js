@@ -309,6 +309,14 @@ class WebRTCManager {
     this.localStream = null;
     this.peers.clear();
   }
+
+  closePeer(peerId) {
+    return this.disconnectPeer(peerId);
+  }
+
+  closeAll() {
+    return this.destroy();
+  }
 }
 
 if (typeof module !== 'undefined' && module.exports) {

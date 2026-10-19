@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ProxiSpeak - Two-Browser Proximity Audio Mesh (Task A6)</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: #1e293b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-hover: #0ea5e9;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1.5rem 1rem;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1000px;
+      width: 100%;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.75rem;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+    header {
+      margin-bottom: 1.25rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    h1 { font-size: 1.4rem; color: var(--accent); margin-bottom: 0.25rem; }
+    p.subtitle { color: var(--text-muted); font-size: 0.85rem; }
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.6rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: #0284c7;
+      color: white;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 1.5rem;
+    }
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+    .canvas-card {
+      background: #060913;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    canvas {
+      background: #090d16;
+      border: 2px solid #1e293b;
+      border-radius: 6px;
+      width: 100%;
+      max-width: 540px;
+      height: 380px;
+      touch-action: none;
+    }
+    .canvas-legend {
+      display: flex;
+      gap: 1rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .legend-item { display: flex; align-items: center; gap: 0.4rem; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+    .card-section {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+    .card-section h3 {
+      font-size: 0.95rem;
+      color: #e2e8f0;
+      margin-bottom: 0.75rem;
+      border-bottom: 1px solid #1e293b;
+      padding-bottom: 0.4rem;
+    }
+    .btn-group {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    button {
+      padding: 0.55rem 0.9rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn-primary { background: var(--accent); color: #0b0f19; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-success { background: var(--success); color: #0b0f19; }
+    .btn-success:hover { background: #059669; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-secondary { background: #334155; color: #f8fafc; }
+    .btn-secondary:hover { background: #475569; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .telemetry-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.4rem;
+      font-size: 0.825rem;
+      color: var(--text-muted);
+    }
+    .telemetry-val {
+      color: #f1f5f9;
+      font-weight: 600;
+      font-family: monospace;
+    }
+    .status-active { color: #34d399; }
+    .status-muted { color: #f87171; }
+    .instructions {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      line-height: 1.4;
+      background: #060913;
+      padding: 0.75rem;
+      border-radius: 6px;
+      border-left: 3px solid var(--accent);
+    }
+    a.link {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.85rem;
+    }
+    a.link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>ProxiSpeak Proximity Audio Mesh</h1>
+        <p class="subtitle">Task A6: Two browsers communicate audio; walking away cuts the sound.</p>
+      </div>
+      <div>
+        <span class="badge" id="roleBadge">Local Node</span>
+        <a href="index.html" class="link" style="margin-left: 0.75rem;">Switch to Radar Simulator &rarr;</a>
+      </div>
+    </header>
+
+    <div class="layout">
+      <!-- 2D Canvas Panel (Harpreet's virtual world integration) -->
+      <div class="canvas-card">
+        <canvas id="virtualWorldCanvas" width="540" height="380"></canvas>
+        <div class="canvas-legend">
+          <div class="legend-item"><span class="legend-dot" style="background:#3b82f6;"></span> You (WASD/Arrows)</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#10b981;"></span> In Earshot (Audio On)</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#64748b;"></span> Out of Range (Audio Cut)</div>
+          <div class="legend-item"><span class="legend-dot" style="border: 1px solid #3b82f6;"></span> 100px Enter</div>
+          <div class="legend-item"><span class="legend-dot" style="border: 1px dashed #ef4444;"></span> 120px Cutoff</div>
+        </div>
+      </div>
+
+      <!-- Controls & Live Telemetry Panel -->
+      <div class="side-panel">
+        <div class="card-section">
+          <h3>1. Identity & Session Setup</h3>
+          <div class="telemetry-row">
+            <span>User ID:</span>
+            <input type="text" id="txtUserId" value="alice" style="background:#1e293b; color:#fff; border:1px solid #334155; padding:0.25rem 0.5rem; border-radius:4px; font-family:monospace; width:110px;">
+            <button id="btnInit" class="btn-primary" style="padding:0.25rem 0.6rem; font-size:0.75rem;">Connect</button>
+          </div>
+          <div class="telemetry-row">
+            <span>Room:</span>
+            <span class="telemetry-val">default-room</span>
+          </div>
+          <div class="telemetry-row">
+            <span>Mesh Channel:</span>
+            <span class="telemetry-val" style="color:#38bdf8;">BroadcastChannel / Localhost</span>
+          </div>
+        </div>
+
+        <div class="card-section">
+          <h3>2. Audio Engine Controls</h3>
+          <div class="btn-group" style="margin-bottom: 0.75rem;">
+            <button id="btnStartAudio" class="btn-success">Start Mic / Test Tone</button>
+            <button id="btnMute" class="btn-secondary" disabled>Mute Mic</button>
+          </div>
+          <p class="instructions">
+            <strong>Two-Browser Verification:</strong> Open this page in a second browser window (e.g. set ID to <code>bob</code>). Use WASD keys to move your avatar. When distance &le; 100px, WebRTC audio streams instantly. Walking away past 120px cuts sound completely!
+          </p>
+        </div>
+
+        <div class="card-section">
+          <h3>3. Proximity Telemetry & WebRTC</h3>
+          <div class="telemetry-row">
+            <span>Coordinates:</span>
+            <span class="telemetry-val" id="lblCoords">(200, 200)</span>
+          </div>
+          <div class="telemetry-row">
+            <span>Active Peers In Range:</span>
+            <span class="telemetry-val" id="lblPeersInRange">0</span>
+          </div>
+          <div class="telemetry-row">
+            <span>Closest Peer Distance:</span>
+            <span class="telemetry-val" id="lblClosestDist">&infin;</span>
+          </div>
+          <div class="telemetry-row">
+            <span>Audio Volume / Gain:</span>
+            <span class="telemetry-val" id="lblAudioGain">0.00 (Muted)</span>
+          </div>
+          <div class="telemetry-row">
+            <span>WebRTC Glare Rule:</span>
+            <span class="telemetry-val" style="color:#94a3b8;">Lower ID offers</span>
+          </div>
+        </div>
+
+        <div class="card-section">
+          <h3>4. Quick Movement Shortcuts</h3>
+          <div class="btn-group">
+            <button id="btnMoveNear" class="btn-secondary" style="font-size:0.75rem;">Move In Earshot (&le;60px)</button>
+            <button id="btnMoveAway" class="btn-secondary" style="font-size:0.75rem;">Walk Away (&gt;130px)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audio Core & Integration Scripts -->
+  <script src="src/AudioMixer.js"></script>
+  <script src="src/SpatialAudioMixer.js"></script>
+  <script src="src/WebRTCManager.js"></script>
+  <script src="src/ProximityIntegration.js"></script>
+
+  <script>
+    // Extract user ID from query string if available (e.g., ?user=bob)
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialUser = urlParams.get('user') || (Math.random() > 0.5 ? 'alice' : 'bob');
+    document.getElementById('txtUserId').value = initialUser;
+
+    const canvas = document.getElementById('virtualWorldCanvas');
+    let integration = null;
+    let audioCtx = null;
+    let testOscillator = null;
+
+    const lblCoords = document.getElementById('lblCoords');
+    const lblPeersInRange = document.getElementById('lblPeersInRange');
+    const lblClosestDist = document.getElementById('lblClosestDist');
+    const lblAudioGain = document.getElementById('lblAudioGain');
+    const roleBadge = document.getElementById('roleBadge');
+    const btnStartAudio = document.getElementById('btnStartAudio');
+    const btnMute = document.getElementById('btnMute');
+    const btnInit = document.getElementById('btnInit');
+    const btnMoveNear = document.getElementById('btnMoveNear');
+    const btnMoveAway = document.getElementById('btnMoveAway');
+
+    function initClient(userId) {
+      if (integration) {
+        integration.destroy();
+      }
+
+      roleBadge.textContent = `User: ${userId}`;
+      const isOffererDefault = userId === 'alice';
+      const startX = isOffererDefault ? 180 : 360;
+      const startY = 190;
+
+      // Create Web Audio context on user gesture
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) audioCtx = new AudioContextClass();
+      }
+
+      const mixer = new SpatialAudioMixer({
+        audioContext: audioCtx,
+        listenerPosition: { x: startX, y: startY, z: 0 },
+        maxDistance: 120
+      });
+
+      integration = new ProximityIntegration({
+        userId: userId,
+        roomId: 'default-room',
+        mixer: mixer,
+        initialPosition: { x: startX, y: startY },
+        earshotRadius: 100,
+        leaveRadius: 120
+      });
+
+      // Bind canvas rendering loop & keyboard controls
+      integration.attachCanvas(canvas);
+
+      // Wire telemetry listeners
+      integration.on('local:moved', (pos) => {
+        lblCoords.textContent = `(${Math.round(pos.x)}, ${Math.round(pos.y)})`;
+        updateTelemetry();
+      });
+
+      integration.on('peer:enter', (e) => {
+        console.log(`[ProxiSpeak] Peer Entered Earshot: ${e.peerId} at ${Math.round(e.distance)}px (IsOfferer: ${e.isOfferer})`);
+        updateTelemetry();
+      });
+
+      integration.on('peer:leave', (e) => {
+        console.log(`[ProxiSpeak] Peer Left (Sound Cut Off): ${e.peerId} at ${Math.round(e.distance)}px`);
+        updateTelemetry();
+      });
+
+      integration.on('peer:moved', () => updateTelemetry());
+
+      integration.start();
+      updateTelemetry();
+    }
+
+    function updateTelemetry() {
+      if (!integration) return;
+      let inRangeCount = 0;
+      let minDistance = Infinity;
+
+      for (const [id, peer] of integration.peers.entries()) {
+        if (peer.inRange) inRangeCount++;
+        if (peer.lastDistance < minDistance) {
+          minDistance = peer.lastDistance;
+        }
+      }
+
+      lblPeersInRange.textContent = inRangeCount;
+      lblClosestDist.textContent = minDistance === Infinity ? 'None' : `${Math.round(minDistance)} px`;
+
+      if (inRangeCount > 0 && minDistance <= 120) {
+        const gain = Math.max(0, 1 - (minDistance / 100));
+        lblAudioGain.textContent = `${gain.toFixed(2)} (Active)`;
+        lblAudioGain.className = 'telemetry-val status-active';
+      } else {
+        lblAudioGain.textContent = '0.00 (Cut Off / Muted)';
+        lblAudioGain.className = 'telemetry-val status-muted';
+      }
+    }
+
+    btnInit.addEventListener('click', () => {
+      const u = document.getElementById('txtUserId').value.trim();
+      if (u) initClient(u);
+    });
+
+    btnStartAudio.addEventListener('click', async () => {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContextClass();
+      }
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
+
+      try {
+        // Try requesting real mic
+        await integration.webrtcManager.initLocalStream();
+        btnStartAudio.textContent = 'Mic Active 🎙️';
+        btnStartAudio.classList.remove('btn-success');
+        btnStartAudio.classList.add('btn-primary');
+      } catch (e) {
+        // Fallback: Generate synthetic local carrier tone for testing
+        const osc = audioCtx.createOscillator();
+        const toneGain = audioCtx.createGain();
+        toneGain.gain.value = 0.15;
+        osc.frequency.value = integration.userId === 'alice' ? 440 : 520;
+        osc.connect(toneGain);
+        osc.start();
+        integration.webrtcManager.setLocalStream({ tracks: [toneGain] });
+        btnStartAudio.textContent = 'Tone Active 🔊';
+      }
+
+      btnStartAudio.disabled = true;
+      btnMute.disabled = false;
+    });
+
+    btnMute.addEventListener('click', () => {
+      if (!integration) return;
+      const isMuted = integration.webrtcManager.toggleMute();
+      btnMute.textContent = isMuted ? 'Unmute Mic' : 'Mute Mic';
+      btnMute.classList.toggle('btn-danger', isMuted);
+    });
+
+    btnMoveNear.addEventListener('click', () => {
+      if (!integration) return;
+      integration.updateLocalPosition(240, 190);
+    });
+
+    btnMoveAway.addEventListener('click', () => {
+      if (!integration) return;
+      integration.updateLocalPosition(50, 50);
+    });
+
+    // Auto-init on load
+    initClient(initialUser);
+  </script>
+</body>
+</html>
