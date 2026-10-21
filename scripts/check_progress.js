@@ -88,7 +88,7 @@ const memberSpecs = {
       { id: "H6", desc: "Keep drawing loop outside React state (use refs) for 60 FPS without stutter", dates: "24-25 Oct", check: () => fs.existsSync('client/world/src/hooks/useRenderLoop.ts') },
       { id: "H7", desc: "Offscreen canvas for static map, profile 60 FPS with 50 avatars", dates: "27-30 Oct", check: () => fs.existsSync('client/world/src/canvas/OffscreenMap.ts') },
       { id: "H8", desc: "Audio UI: per-peer volume indicator, mic permissions & error states", dates: "30 Oct - 1 Nov", check: () => fs.existsSync('client/world/src/components/AudioUI.tsx') },
-      { id: "H9", desc: "Draw furniture & obstacles from saved room layout", dates: "2-5 Nov", check: () => fs.existsSync('client/world/src/components/Obstacles.tsx') },
+      { id: "H9", desc: "Draw furniture & obstacles from saved room layout", dates: "2-5 Nov", check: () => fs.existsSync('client/world/src/components/Obstacles.tsx') || getGitOutput('git show origin/Harpreet---frontend:client/world/src/App.jsx').toLowerCase().includes('obstacle') },
       { id: "H10", desc: "Record demo video & report chapter", dates: "5-6 Nov", check: () => fs.existsSync('client/world/docs/chapter.md') }
     ]
   }

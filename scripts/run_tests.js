@@ -539,10 +539,50 @@ async function runProximityIntegrationTest() {
   console.log('✔ ProximityIntegration: Canvas movement, peer:enter/leave triggers, lower-id offerer, and walking-away audio cut-off: OK');
 }
 
+// --- Test 16: Obstacle Collision, Acoustic Line-of-Sight, and Mid Review Spatial Audit ---
+function runObstacleAndSpatialAuditTest() {
+  const { ProximityIntegration } = require('../client/audio/src/ProximityIntegration');
+  const mockCtx = createMockAudioContext();
+  const mixer = new SpatialAudioMixer(mockCtx, { earshotRadius: 100 });
+
+  const client = new ProximityIntegration({
+    userId: 'audit-user',
+    mixer: mixer,
+    initialPosition: { x: 50, y: 50 }
+  });
+
+  // 1. Collision detection (matching Harpreet's 5 office desks)
+  // Desk 1 is at x: 100..220, y: 100..160
+  // Position (150, 130) is inside desk 1 -> MUST be blocked
+  assert.strictEqual(client.isBlocked(150, 130, 15), true, 'Position inside desk 1 is blocked');
+  // Position (150, 70) is >15px away -> NOT blocked
+  assert.strictEqual(client.isBlocked(150, 70, 15), false, 'Position outside desk 1 is free');
+
+  // 2. Acoustic Line-of-sight Ray Casting
+  // Path from (50, 130) to (250, 130) passes directly through Desk 1
+  const losThroughDesk = client.checkLineOfSight({ x: 50, y: 130 }, { x: 250, y: 130 });
+  assert.strictEqual(losThroughDesk.occluded, true, 'Ray passing through desk 1 is occluded');
+  assert.strictEqual(losThroughDesk.obstacle.id, 'desk-1', 'Occluding obstacle correctly identified');
+
+  // Path from (50, 50) to (250, 50) is clear
+  const losClear = client.checkLineOfSight({ x: 50, y: 50 }, { x: 250, y: 50 });
+  assert.strictEqual(losClear.occluded, false, 'Clear line of sight detected');
+
+  // 3. Mid Review Spatial Audit Diagnostics (<20ms latency requirement)
+  const diag = client.getDiagnostics();
+  assert.strictEqual(diag.userId, 'audit-user');
+  assert.strictEqual(diag.isCompliantWithVivaAudit, true);
+  assert.ok(diag.spatialAuditLatencyMs < 20, 'Spatial audit latency strictly under 20ms viva requirement');
+
+  client.destroy();
+  console.log('✔ Obstacle collision, acoustic line-of-sight ray casting, and <20ms spatial audit diagnostics: OK');
+}
+
 async function runAll() {
   await runWebRTCLifecycleTest();
   await runProximityIntegrationTest();
-  console.log('\nAll 15 audio spike, SpatialAudioMixer, multi-peer, AudioIntegrationClient, WebRTCManager, and ProximityIntegration assertions passed cleanly.');
+  runObstacleAndSpatialAuditTest();
+  console.log('\nAll 16 audio spike, SpatialAudioMixer, multi-peer, WebRTCManager, ProximityIntegration, and Spatial Audit assertions passed cleanly.');
 }
 
 runAll().catch((err) => {

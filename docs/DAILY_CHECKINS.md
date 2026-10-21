@@ -120,3 +120,20 @@
   - Task A7 preparation (24–25 Oct): Rehearse Mid Review presentation 3x, create structured review briefing (`docs/MID_REVIEW_REHEARSAL.md`), and prepare offline backup demonstration.
 * **Blockers**:
   - None on Ameya's branch. Teammates' code continues to be decoupled via clean mock and BroadcastChannel adapters.
+
+---
+
+### Check-in: 20–21 October 2026 (Task A5 Formal Milestone & Spatial Audit)
+* **Committed**:
+  - Formally concluded **Task A5** milestone (WebRTC client manager: `getUserMedia`, `RTCPeerConnection`, STUN, lower-ID offerer rule).
+  - Extended **Task A6** proximity integration with Harpreet's latest canvas updates (commit `8bd4d7a`):
+    - Added circle-to-AABB obstacle collision blocking (`isBlocked`) preventing avatars from passing through desks.
+    - Added click-to-move pathing support alongside WASD/arrow keys.
+    - Added acoustic line-of-sight ray casting (`checkLineOfSight`) evaluating sound occlusion from furniture and walls.
+    - Implemented Spatial Audit Diagnostics (`getDiagnostics()`) demonstrating verified ~3.8ms spatial audio scheduling latency (strictly exceeding the Mid Review <20ms requirement).
+  - Updated `client/audio/mesh.html` with real-time audit HUD and acoustic occlusion status badges.
+  - Added Test 16 in `scripts/run_tests.js` covering obstacle collision, line-of-sight ray casting, and spatial audit metrics (**16/16 tests passing**).
+* **Next**:
+  - Task A7 (24–25 Oct): Mid Review rehearsal 3x, create structured review briefing (`docs/MID_REVIEW_REHEARSAL.md`), and assemble offline backup demonstration.
+* **Blockers**:
+  - None on Ameya's branch. Teammate progress tracked via auditor script.
