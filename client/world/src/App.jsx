@@ -1,8 +1,10 @@
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 function App() {
   const canvasRef = useRef(null);
+
+  const [isMuted, setIsMuted] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -331,6 +333,24 @@ for (const room of rooms) {
           border: "2px solid #374151",
         }}
       />
+
+        
+     <button
+       onClick={() => setIsMuted(!isMuted)}
+       style={{
+         padding: "10px 20px",
+         marginBottom: "20px",
+         borderRadius: "8px",
+         border: "none",
+         cursor: "pointer",
+         backgroundColor: isMuted ? "#dc2626" : "#16a34a",
+              color: "white",
+         fontSize: "16px",
+        }}
+        >
+        {isMuted ? "🔇 Mic Muted" : "🎤 Mic On"}
+     </button>
+
     </main>
   );
 }
