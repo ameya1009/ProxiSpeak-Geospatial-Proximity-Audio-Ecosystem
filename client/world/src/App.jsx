@@ -15,8 +15,17 @@ function App() {
       speed: 4,
     };
 
+    const remoteAvatar = {
+      x: 600,
+      y: 250,
+      radius: 15,
+      name: "Teammate",
+    };
+
+    let isTeammateSpeaking = true;
+
     const keys = {};
-    let target = null;
+    let target = null;    
 
   const obstacles = [
   { x: 100, y: 100, width: 120, height: 60 },
@@ -113,6 +122,12 @@ function update() {
 function handleKeyDown(event) {
       const key = event.key.toLowerCase();
 
+      
+       if (key === "t") {
+         isTeammateSpeaking = !isTeammateSpeaking;
+         return;
+       }
+       
       if (
         ["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)
       ) {
@@ -142,20 +157,20 @@ function handleKeyDown(event) {
             
          // Office room sections
      const rooms = [
- {
-    name: "MAIN HALL",
-    x: 20,
-    y: 20,
-    width: 760,
-    height: 220,
-  },
-  {
-    name: "THE LOUNGE",
-    x: 20,
-    y: 260,
-    width: 360,
-    height: 220,
-  },
+     {
+        name: "MAIN HALL",
+        x: 20,
+        y: 20,
+        width: 760,
+        height: 220,
+      },
+    {
+      name: "THE LOUNGE",
+      x: 20,
+      y: 260,
+      width: 360,
+      height: 220,
+     },
   {
     name: "MEETING ROOM",
     x: 400,
@@ -216,6 +231,12 @@ for (const room of rooms) {
       ctx.lineWidth = 2
       ctx.stroke()
 
+      // Your name label
+      ctx.fillStyle = "#1f2937";
+      ctx.font = "bold 14px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("You", avatar.x, avatar.y - 24);
+
       // Avatar
       ctx.beginPath();
       ctx.arc(avatar.x, avatar.y, avatar.radius, 0, Math.PI * 2);
@@ -225,7 +246,52 @@ for (const room of rooms) {
       ctx.strokeStyle = "#ffffff";
       ctx.lineWidth = 3;
       ctx.stroke();
+
+       // Temporary remote teammate avatar
+       ctx.beginPath();
+         ctx.arc(
+         remoteAvatar.x,
+         remoteAvatar.y,
+         remoteAvatar.radius,
+         0,
+         Math.PI * 2
+       );
+       ctx.fillStyle = "#16a34a";
+       ctx.fill();
+
+       ctx.strokeStyle = "#ffffff";
+       ctx.lineWidth = 3;
+       ctx.stroke();
+
+       
+      // Speaking indicator
+      if (isTeammateSpeaking) {
+        ctx.beginPath();
+        ctx.arc(
+          remoteAvatar.x,
+          remoteAvatar.y,
+          remoteAvatar.radius + 6,
+          0,
+          Math.PI * 2
+        );
+        ctx.strokeStyle = "#22c55e";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
+
+
+       // Teammate name
+         ctx.fillStyle = "#1f2937";
+         ctx.font = "bold 14px Arial";
+         ctx.textAlign = "center";
+         ctx.fillText(
+         remoteAvatar.name,
+         remoteAvatar.x,
+         remoteAvatar.y - 24
+       );
     }
+
+   
 
     let animationId;
 
@@ -235,7 +301,7 @@ for (const room of rooms) {
       animationId = requestAnimationFrame(gameLoop);
     }
 
-    window.addEventListener("keydown", handleKeyDown);
+           window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
     canvas.addEventListener('click', handleCanvasClick);
 
