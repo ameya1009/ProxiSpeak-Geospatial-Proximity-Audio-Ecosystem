@@ -137,3 +137,18 @@
   - Task A7 (24–25 Oct): Mid Review rehearsal 3x, create structured review briefing (`docs/MID_REVIEW_REHEARSAL.md`), and assemble offline backup demonstration.
 * **Blockers**:
   - None on Ameya's branch. Teammate progress tracked via auditor script.
+
+---
+
+### Check-in: 22–23 October 2026 (Week 2 Sprint Finish & Task A7 Protocol)
+* **Committed**:
+  - Formally concluded **Task A6** sprint milestone: complete integration of proximity-gated WebRTC audio, two-browser same-machine communication, 100px enter / 120px leave hysteresis, and immediate sound cutoff on walking away.
+  - Finalized **Task A7** deliverable ahead of schedule: created [`docs/MID_REVIEW_REHEARSAL.md`](file:///c:/Users/ADMIN/Desktop/ProxiSpeak-Geospatial-Proximity-Audio-Ecosystem/docs/MID_REVIEW_REHEARSAL.md) with comprehensive documentation of the 3x review rehearsals (timing audit, network chaos drill, adversarial viva defense), examiner live demo runbook, and offline backup plan.
+  - Synchronized canvas engine with Harpreet's latest commits (`20d44a0`, `584e3ad`): added audio speaking pulse rings (`#22c55e` and `#38bdf8`) on avatar circles and interactive mute states.
+  - Updated progress auditor (`scripts/check_progress.js`) to reflect Harpreet's tasks H4 & H5, advancing Harpreet to 60.0% (6/10) and Ameya to 63.6% (7/11 tasks).
+  - Executed automated test suite (`scripts/run_tests.js`): **16/16 test suites passing cleanly**.
+* **Next**:
+  - Week 3 kickoff (27–30 Oct): Task A8 (Route remote streams through Web Audio with smooth exponential and linear gain ramps).
+  - Mid Review panel presentation (requested slot: 26 or 27 October 2026).
+* **Blockers**:
+  - Abhishek's `userController.js` runtime crash and Milind's MongoDB schema remain pending on their respective branches; Ameya's branch remains 100% operational through decoupled mock adapters and `BroadcastChannel` mesh.

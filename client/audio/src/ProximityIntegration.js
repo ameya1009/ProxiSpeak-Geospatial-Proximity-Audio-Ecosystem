@@ -703,6 +703,15 @@ class ProximityIntegration {
         ctx.lineWidth = 2;
         ctx.stroke();
 
+        // Peer Speaking Indicator (matches Harpreet's 20d44a0 commit)
+        if (isInRange && peer.isSpeaking !== false) {
+          ctx.beginPath();
+          ctx.arc(peer.x, peer.y, avatarRadius + 6, 0, Math.PI * 2);
+          ctx.strokeStyle = '#22c55e';
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+        }
+
         // Peer Label & Status
         ctx.fillStyle = '#f8fafc';
         ctx.font = '12px sans-serif';
@@ -729,6 +738,15 @@ class ProximityIntegration {
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 2.5;
       ctx.stroke();
+
+      // Local Speaking Indicator (Active when mic is unmuted)
+      if (this.webrtcManager && !this.webrtcManager.isMuted) {
+        ctx.beginPath();
+        ctx.arc(this.localPos.x, this.localPos.y, avatarRadius + 6, 0, Math.PI * 2);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+      }
 
       // Local Avatar Label
       ctx.fillStyle = '#ffffff';
