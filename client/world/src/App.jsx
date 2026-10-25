@@ -17,14 +17,23 @@ function App() {
       speed: 4,
     };
 
-    const remoteAvatar = {
-      x: 600,
-      y: 250,
-      radius: 15,
-      name: "Teammate",
-    };
+   const remoteAvatars = [
+  {
+    x: 600,
+    y: 250,
+    radius: 15,
+    name: "Teammate",
+    isSpeaking: true,
+   },
+  {
+    x: 500,
+    y: 180,
+    radius: 15,
+    name: "Teammate 2",
+    isSpeaking: false,
+  },
+];  
 
-    let isTeammateSpeaking = true;
 
     const keys = {};
     let target = null;    
@@ -123,13 +132,7 @@ function update() {
 
 function handleKeyDown(event) {
       const key = event.key.toLowerCase();
-
-      
-       if (key === "t") {
-         isTeammateSpeaking = !isTeammateSpeaking;
-         return;
-       }
-       
+     
       if (
         ["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)
       ) {
@@ -249,48 +252,49 @@ for (const room of rooms) {
       ctx.lineWidth = 3;
       ctx.stroke();
 
-       // Temporary remote teammate avatar
-       ctx.beginPath();
-         ctx.arc(
-         remoteAvatar.x,
-         remoteAvatar.y,
-         remoteAvatar.radius,
-         0,
-         Math.PI * 2
-       );
-       ctx.fillStyle = "#16a34a";
-       ctx.fill();
+      // Draw remote teammates
+for (const remoteAvatar of remoteAvatars) {
+  ctx.beginPath();
+  ctx.arc(
+    remoteAvatar.x,
+    remoteAvatar.y,
+    remoteAvatar.radius,
+    0,
+    Math.PI * 2
+  );
 
-       ctx.strokeStyle = "#ffffff";
-       ctx.lineWidth = 3;
-       ctx.stroke();
+  ctx.fillStyle = "#16a34a";
+  ctx.fill();
 
-       
-      // Speaking indicator
-      if (isTeammateSpeaking) {
-        ctx.beginPath();
-        ctx.arc(
-          remoteAvatar.x,
-          remoteAvatar.y,
-          remoteAvatar.radius + 6,
-          0,
-          Math.PI * 2
-        );
-        ctx.strokeStyle = "#22c55e";
-        ctx.lineWidth = 3;
-        ctx.stroke();
-      }
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 3;
+  ctx.stroke();
 
+  // Speaking indicator
+  if (remoteAvatar.isSpeaking) {
+    ctx.beginPath();
+    ctx.arc(
+      remoteAvatar.x,
+      remoteAvatar.y,
+      remoteAvatar.radius + 6,
+      0,
+      Math.PI * 2
+    );
+    ctx.strokeStyle = "#22c55e";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
 
-       // Teammate name
-         ctx.fillStyle = "#1f2937";
-         ctx.font = "bold 14px Arial";
-         ctx.textAlign = "center";
-         ctx.fillText(
-         remoteAvatar.name,
-         remoteAvatar.x,
-         remoteAvatar.y - 24
-       );
+  // Teammate name
+  ctx.fillStyle = "#1f2937";
+  ctx.font = "bold 14px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText(
+    remoteAvatar.name,
+    remoteAvatar.x,
+    remoteAvatar.y - 24
+  );
+}
     }
 
    
