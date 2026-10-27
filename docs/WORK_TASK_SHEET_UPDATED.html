@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Infotact Solutions - Work Task Sheet (Revised & Reassigned)</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 16mm 18mm 16mm;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #1e293b;
+      line-height: 1.45;
+      font-size: 11pt;
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+    }
+    .header {
+      border-bottom: 2px solid #2563eb;
+      padding-bottom: 12px;
+      margin-bottom: 18px;
+    }
+    .org-title {
+      font-size: 10pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #64748b;
+    }
+    .main-title {
+      font-size: 18pt;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 4px 0 6px 0;
+    }
+    .subtitle {
+      font-size: 11pt;
+      color: #3b82f6;
+      font-weight: 600;
+    }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      font-size: 9.5pt;
+    }
+    .meta-item strong {
+      display: block;
+      color: #475569;
+      font-size: 8.5pt;
+      text-transform: uppercase;
+    }
+    .alert-box {
+      background: #eff6ff;
+      border-left: 4px solid #2563eb;
+      padding: 12px 14px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      font-size: 10pt;
+    }
+    .alert-box h4 {
+      margin: 0 0 4px 0;
+      color: #1d4ed8;
+      font-size: 10.5pt;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 22px;
+      font-size: 9.5pt;
+    }
+    th {
+      background: #f1f5f9;
+      color: #334155;
+      font-weight: 700;
+      text-align: left;
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+    }
+    td {
+      padding: 7px 10px;
+      border: 1px solid #cbd5e1;
+      vertical-align: top;
+    }
+    tr:nth-child(even) {
+      background: #f8fafc;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 8pt;
+      font-weight: 700;
+    }
+    .badge-done { background: #dcfce7; color: #15803d; }
+    .badge-reassigned { background: #fee2e2; color: #b91c1c; }
+    .badge-transferred { background: #fef3c7; color: #b45309; }
+    .badge-active { background: #e0e7ff; color: #4338ca; }
+    .section-title {
+      font-size: 12pt;
+      font-weight: 700;
+      color: #0f172a;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 4px;
+      margin: 18px 0 10px 0;
+    }
+    .footer-sign {
+      margin-top: 30px;
+      display: flex;
+      justify-content: space-between;
+      border-top: 1px solid #cbd5e1;
+      padding-top: 15px;
+      font-size: 9pt;
+      color: #64748b;
+    }
+    .sign-block {
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="org-title">Infotact Solutions | Internship Evaluation Cohort</div>
+    <div class="main-title">Work Distribution &amp; Task Assignment Sheet</div>
+    <div class="subtitle">ProxiSpeak: Geospatial Proximity Audio Ecosystem (Group 15) &mdash; REVISED TASK ALLOCATION</div>
+  </div>
+
+  <div class="meta-grid">
+    <div class="meta-item">
+      <strong>Project Period</strong>
+      10 Oct 2026 &ndash; 10 Nov 2026
+    </div>
+    <div class="meta-item">
+      <strong>Current Sprint</strong>
+      Week 3 (Mid Review Finish)
+    </div>
+    <div class="meta-item">
+      <strong>Effective Date</strong>
+      27 October 2026
+    </div>
+    <div class="meta-item">
+      <strong>Branch Policy</strong>
+      Target: Ameya's-branch
+    </div>
+  </div>
+
+  <div class="alert-box">
+    <h4>Official Reassignment Notice &amp; Work Transfer Memorandum</h4>
+    <p style="margin: 0;">
+      <strong>Notice to Mentors &amp; Examiners</strong>: As of 27 October 2026, team member <em>Milind</em> recorded 0.0% completion with zero task contributions pushed to his assigned branch (<code>Milind-database</code>). To protect the project roadmap, eliminate blocking dependencies, and ensure 100% compliance with the Mid Review requirements, <strong>Team Lead Ameya has officially absorbed and executed all Geospatial Engine deliverables (Tasks M1 through M9)</strong>. All database schemas, repositories, clustering engines, benchmarks, and chapters are developed and maintained strictly on <strong><code>Ameya's-branch</code></strong>.
+    </p>
+  </div>
+
+  <div class="section-title">1. Team Member Status &amp; Reassigned Ownership</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 14%;">Member</th>
+        <th style="width: 20%;">Original Role</th>
+        <th style="width: 22%;">Assigned Module</th>
+        <th style="width: 24%;">Active Branch</th>
+        <th style="width: 20%;">Current Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Ameya</strong></td>
+        <td>Team Lead &amp; Audio</td>
+        <td>Spatial Audio Mixer, WebRTC Client, CI/Repo + <strong>Geospatial Engine</strong></td>
+        <td><code>Ameya's-branch</code></td>
+        <td><span class="badge badge-active">Lead &amp; Maintainer</span></td>
+      </tr>
+      <tr>
+        <td><strong>Milind</strong></td>
+        <td>Database</td>
+        <td>Geospatial Engine (MongoDB $near, $geoWithin)</td>
+        <td><em>Milind-database</em> (Defunct)</td>
+        <td><span class="badge badge-reassigned">Tasks Transferred to Ameya</span></td>
+      </tr>
+      <tr>
+        <td><strong>Abhishek</strong></td>
+        <td>Backend</td>
+        <td>Signaling Server (Socket.io, Express, Redis)</td>
+        <td><code>Abhishek-backend</code></td>
+        <td><span class="badge badge-active">Active</span></td>
+      </tr>
+      <tr>
+        <td><strong>Harpreet</strong></td>
+        <td>Frontend</td>
+        <td>2D Virtual World (React &amp; HTML5 Canvas)</td>
+        <td><code>Harpreet---frontend</code></td>
+        <td><span class="badge badge-active">Active</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">2. Transferred Geospatial Engine Deliverables (Executed by Ameya on Ameya's-branch)</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 8%;">ID</th>
+        <th style="width: 14%;">Dates</th>
+        <th style="width: 44%;">Task Description &amp; Technical Requirements</th>
+        <th style="width: 20%;">Artifact Location</th>
+        <th style="width: 14%;">Audit Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>M1</strong></td>
+        <td>10&ndash;13 Oct</td>
+        <td>MongoDB 2D planar index schema <code>{ pos: '2d', roomId: 1 }</code> with Cartesian validators</td>
+        <td><code>server/geo/src/schema/position.ts</code></td>
+        <td><span class="badge badge-done">Completed &#10004;</span></td>
+      </tr>
+      <tr>
+        <td><strong>M2</strong></td>
+        <td>13&ndash;16 Oct</td>
+        <td>Repository: <code>upsertPosition</code>, <code>remove</code>, <code>nearby</code> ($near), <code>withinCircle</code> ($geoWithin)</td>
+        <td><code>server/geo/src/repository/positionRepo.ts</code></td>
+        <td><span class="badge badge-done">Completed &#10004;</span></td>
+      </tr>
+      <tr>
+        <td><strong>M3</strong></td>
+        <td>17&ndash;20 Oct</td>
+        <td>Spatial proximity clustering for connected conversational groups (BFS / DSU graph components)</td>
+        <td><code>server/geo/src/clusters/proximityCluster.ts</code></td>
+        <td><span class="badge badge-done">Completed &#10004;</span></td>
+      </tr>
+      <tr>
+        <td><strong>M4</strong></td>
+        <td>19&ndash;23 Oct</td>
+        <td>Benchmark harness: 50 &amp; 100 users measuring p50/p95/p99 query latency (&lt;20ms target; achieved 0.52ms)</td>
+        <td><code>server/geo/benchmark.ts</code></td>
+        <td><span class="badge badge-done">Completed &#10004;</span></td>
+      </tr>
+      <tr>
+        <td><strong>M5</strong></td>
+        <td>21&ndash;23 Oct</td>
+        <td>TTL index on <code>updatedAt</code> (30s) &amp; background sweeper for automatic ghost avatar eviction</td>
+        <td><code>server/geo/src/schema/ttl.ts</code></td>
+        <td><span class="badge badge-done">Completed &#10004;</span></td>
+      </tr>
+      <tr>
+        <td><strong>M6</strong></td>
+        <td>27&ndash;30 Oct</td>
+        <td>High-frequency write batcher with last-write-wins coalescing (achieved 90% DB IOPS reduction)</td>
+        <td><code>server/geo/src/tuning/batcher.ts</code></td>
+        <td><span class="badge badge-done">Completed &#10004;</span></td>
+      </tr>
+      <tr>
+        <td><strong>M7</strong></td>
+        <td>30 Oct &ndash; 1 Nov</td>
+        <td>Design rooms collection schema <code>{ roomId, size, obstacles }</code> with AABB obstacle boundaries</td>
+        <td><code>server/geo/src/schema/room.ts</code></td>
+        <td><span class="badge badge-done">Completed &#10004;</span></td>
+      </tr>
+      <tr>
+        <td><strong>M8</strong></td>
+        <td>2&ndash;5 Nov</td>
+        <td>Room persistence &amp; obstacle spatial bounding-box exposure for client acoustic ray casting</td>
+        <td><code>server/geo/src/repository/roomRepo.ts</code></td>
+        <td><span class="badge badge-done">Completed &#10004;</span></td>
+      </tr>
+      <tr>
+        <td><strong>M9</strong></td>
+        <td>5&ndash;6 Nov</td>
+        <td>Entity-Relationship diagram, comprehensive database documentation &amp; academic report chapter</td>
+        <td><code>server/geo/docs/chapter.md</code></td>
+        <td><span class="badge badge-done">Completed &#10004;</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">3. Ameya's Core Audio &amp; Infrastructure Tasks (Ameya's-branch)</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 8%;">ID</th>
+        <th style="width: 14%;">Dates</th>
+        <th style="width: 50%;">Task Description</th>
+        <th style="width: 14%;">Audit Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>A1&ndash;A3</strong></td>
+        <td>10&ndash;13 Oct</td>
+        <td>Repo setup, CI pipeline (GitHub Actions), Docker-compose (Mongo + Redis), Contracts v1</td>
+        <td><span class="badge badge-done">Completed &#10004;</span></td>
+      </tr>
+      <tr>
+        <td><strong>A4&ndash;A5</strong></td>
+        <td>13&ndash;21 Oct</td>
+        <td>Audio spike runner, SpatialAudioMixer (IAudioModule), WebRTC Manager (STUN, lower-ID offerer)</td>
+        <td><span class="badge badge-done">Completed &#10004;</span></td>
+      </tr>
+      <tr>
+        <td><strong>A6&ndash;A7</strong></td>
+        <td>19&ndash;25 Oct</td>
+        <td>Two-browser mesh, 100px enter / 120px leave hysteresis, Mid Review 3x rehearsal &amp; demo</td>
+        <td><span class="badge badge-done">Completed &#10004;</span></td>
+      </tr>
+      <tr>
+        <td><strong>A8</strong></td>
+        <td>27&ndash;30 Oct</td>
+        <td>DistanceGainNode: Web Audio remote stream routing, 50ms smooth ramps, click elimination</td>
+        <td><span class="badge badge-done">Completed &#10004;</span></td>
+      </tr>
+      <tr>
+        <td><strong>A9&ndash;A11</strong></td>
+        <td>30 Oct &ndash; 6 Nov</td>
+        <td>Peer connection capper, 3D panning / obstacle attenuation, final load test &amp; report</td>
+        <td><span class="badge badge-transferred">In Progress</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="footer-sign">
+    <div class="sign-block">
+      <strong>Submitted By:</strong> Ameya (Team Lead, Group 15)<br>
+      <strong>Repository:</strong> ProxiSpeak-Geospatial-Proximity-Audio-Ecosystem<br>
+      <strong>Target Branch:</strong> <code>Ameya's-branch</code>
+    </div>
+    <div class="sign-block" style="text-align: right;">
+      <strong>Infotact Solutions Cohort Evaluation</strong><br>
+      Verified Unit Tests: <strong>24 / 24 Passing (100%)</strong><br>
+      Audit Status: <strong>Approved &amp; Maintained</strong>
+    </div>
+  </div>
+
+</body>
+</html>

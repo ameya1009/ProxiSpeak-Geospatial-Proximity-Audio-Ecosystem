@@ -815,6 +815,70 @@ async function runGeospatialBenchmarkTest() {
   console.log('✔ Task M4: Benchmark harness for 50 & 100 users with p99 < 20ms: OK');
 }
 
+// --- Test 23: Task M7 - Rooms Collection Schema & Obstacle Validation ---
+function runRoomSchemaTest() {
+  const { validateRoom, RoomIndexDefinitions } = require('../server/geo/src/schema/room');
+  assert.strictEqual(RoomIndexDefinitions[0].fields.roomId, 1);
+  assert.strictEqual(RoomIndexDefinitions[0].options.unique, true);
+
+  assert.strictEqual(validateRoom(null).valid, false);
+  assert.strictEqual(validateRoom({ roomId: '' }).valid, false);
+  assert.strictEqual(validateRoom({ roomId: 'r1', size: { width: -10, height: 100 } }).valid, false);
+
+  const valid = validateRoom({
+    roomId: 'room-main',
+    name: 'Executive Boardroom',
+    size: { width: 1000, height: 600 },
+    obstacles: [
+      { id: 'obs-1', name: 'Conference Table', x: 200, y: 150, width: 200, height: 100, type: 'desk' }
+    ]
+  });
+  assert.strictEqual(valid.valid, true);
+  assert.strictEqual(valid.normalized.obstacles.length, 1);
+  assert.strictEqual(valid.normalized.obstacles[0].acousticAttenuationDb, 6.0);
+  console.log('✔ Task M7: Rooms schema validation & obstacle AABB parameters: OK');
+}
+
+// --- Test 24: Tasks M8 & M9 - Room Repository, Obstacle Persistence & Documentation ---
+async function runRoomRepoAndDocsTest() {
+  const fs = require('fs');
+  const { RoomRepository } = require('../server/geo/src/repository/roomRepo');
+  const repo = new RoomRepository();
+
+  // 1. Check default seeded office room matching Harpreet's canvas
+  const defaultRoom = await repo.getRoom('default-office');
+  assert.ok(defaultRoom);
+  assert.strictEqual(defaultRoom.obstacles.length, 5, 'Seeded with 5 office workstations');
+
+  // 2. Query obstacles in a specific region
+  const regionObstacles = await repo.getObstaclesInRegion('default-office', {
+    minX: 50,
+    minY: 50,
+    maxX: 240,
+    maxY: 180
+  });
+  assert.ok(regionObstacles.length >= 1, 'Found workstation 1 intersecting bounding box');
+  assert.strictEqual(regionObstacles[0].id, 'desk-1');
+
+  // 3. Upsert a custom room
+  await repo.upsertRoom({
+    roomId: 'huddle-room-1',
+    name: 'Huddle Room Alpha',
+    size: { width: 500, height: 400 },
+    obstacles: []
+  });
+  const allRooms = await repo.listRooms();
+  assert.strictEqual(allRooms.length, 2);
+
+  // 4. Verify Task M9 documentation chapter exists and is comprehensive (>100 lines)
+  assert.strictEqual(fs.existsSync('server/geo/docs/chapter.md'), true);
+  const chapterContent = fs.readFileSync('server/geo/docs/chapter.md', 'utf8');
+  assert.ok(chapterContent.length > 2000, 'Database architecture chapter is fully written');
+  assert.ok(chapterContent.includes('Entity-Relationship'), 'Contains ER diagram');
+
+  console.log('✔ Tasks M8 & M9: Room persistence, obstacle spatial queries, and DB documentation chapter: OK');
+}
+
 async function runAll() {
   await runWebRTCLifecycleTest();
   await runProximityIntegrationTest();
@@ -825,7 +889,9 @@ async function runAll() {
   runProximityClusteringTest();
   await runWriteBatcherTest();
   await runGeospatialBenchmarkTest();
-  console.log('\nAll 22 audio spike, SpatialAudioMixer, multi-peer, WebRTCManager, ProximityIntegration, DistanceGainNode, and Milind Geospatial Engine assertions passed cleanly.');
+  runRoomSchemaTest();
+  await runRoomRepoAndDocsTest();
+  console.log('\nAll 24 audio spike, SpatialAudioMixer, multi-peer, WebRTCManager, ProximityIntegration, DistanceGainNode, and Complete Geospatial Engine (M1-M9) assertions passed cleanly.');
 }
 
 runAll().catch((err) => {

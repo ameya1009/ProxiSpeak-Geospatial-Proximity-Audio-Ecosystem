@@ -112,9 +112,9 @@ function main() {
 
   const branches = [
     { name: 'main', branchRef: 'main' },
-    { name: "Ameya (Team Lead / Audio)", memberKey: 'Ameya', branchRef: "Ameya's-branch" },
+    { name: "Ameya (Lead / Audio)", memberKey: 'Ameya', branchRef: "Ameya's-branch" },
     { name: 'Abhishek (Backend)', memberKey: 'Abhishek', branchRef: 'Abhishek-backend' },
-    { name: 'Milind (Database)', memberKey: 'Milind', branchRef: 'Milind-database' },
+    { name: 'Milind (DB -> Transferred)', memberKey: 'Milind', branchRef: "Ameya's-branch (Reassigned)" },
     { name: 'Harpreet (Frontend)', memberKey: 'Harpreet', branchRef: 'Harpreet---frontend' }
   ];
 
@@ -155,6 +155,18 @@ function main() {
 
   const ameyaTasks = memberSpecs.Ameya.tasks;
   for (const task of ameyaTasks) {
+    let done = false;
+    try { done = task.check(); } catch {}
+    const statusIcon = done ? '✅ [DONE]' : '⏳ [PENDING]';
+    console.log(` ${statusIcon} [${task.dates.padEnd(14)}] ${task.id}: ${task.desc}`);
+  }
+
+  console.log('-'.repeat(78));
+  console.log("TRANSFERRED GEOSPATIAL TASKS EXECUTED BY AMEYA (MILIND M1-M9):");
+  console.log('-'.repeat(78));
+
+  const milindTasks = memberSpecs.Milind.tasks;
+  for (const task of milindTasks) {
     let done = false;
     try { done = task.check(); } catch {}
     const statusIcon = done ? '✅ [DONE]' : '⏳ [PENDING]';
