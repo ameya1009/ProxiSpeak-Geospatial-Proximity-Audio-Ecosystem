@@ -64,14 +64,14 @@ const memberSpecs = {
     branch: "Milind-database",
     folder: "server/geo",
     tasks: [
-      { id: "M1", desc: "MongoDB 2d index schema for positions {userId, roomId, pos: [x,y]}", dates: "10-13 Oct", check: () => fs.existsSync('server/geo/src/schema/position.ts') },
-      { id: "M2", desc: "Repository: upsertPosition, remove, nearby($near), withinCircle($geoWithin)", dates: "13-16 Oct", check: () => fs.existsSync('server/geo/src/repository/positionRepo.ts') },
-      { id: "M3", desc: "Cluster users by proximity (connected groups)", dates: "17-20 Oct", check: () => fs.existsSync('server/geo/src/clusters/proximityCluster.ts') },
-      { id: "M4", desc: "Benchmark harness: 50 & 100 users, p50/p95/p99 query latency (<20ms)", dates: "19-23 Oct", check: () => fs.existsSync('server/geo/benchmark.ts') },
-      { id: "M5", desc: "TTL index on updatedAt for automatic ghost cleanup", dates: "21-23 Oct", check: () => fs.existsSync('server/geo/src/schema/ttl.ts') },
-      { id: "M6", desc: "Query & write-rate tuning (throttle/batch writes)", dates: "27-30 Oct", check: () => fs.existsSync('server/geo/src/tuning/batcher.ts') },
-      { id: "M7", desc: "Design rooms collection { roomId, size, obstacles }", dates: "30 Oct - 1 Nov", check: () => fs.existsSync('server/geo/src/schema/room.ts') },
-      { id: "M8", desc: "Room persistence & obstacle data exposure", dates: "2-5 Nov", check: () => fs.existsSync('server/geo/src/repository/roomRepo.ts') },
+      { id: "M1", desc: "MongoDB 2d index schema for positions {userId, roomId, pos: [x,y]}", dates: "10-13 Oct", check: () => fs.existsSync('server/geo/src/schema/position.ts') || fs.existsSync('server/geo/src/schema/position.js') },
+      { id: "M2", desc: "Repository: upsertPosition, remove, nearby($near), withinCircle($geoWithin)", dates: "13-16 Oct", check: () => fs.existsSync('server/geo/src/repository/positionRepo.ts') || fs.existsSync('server/geo/src/repository/positionRepo.js') },
+      { id: "M3", desc: "Cluster users by proximity (connected groups)", dates: "17-20 Oct", check: () => fs.existsSync('server/geo/src/clusters/proximityCluster.ts') || fs.existsSync('server/geo/src/clusters/proximityCluster.js') },
+      { id: "M4", desc: "Benchmark harness: 50 & 100 users, p50/p95/p99 query latency (<20ms)", dates: "19-23 Oct", check: () => fs.existsSync('server/geo/benchmark.ts') || fs.existsSync('server/geo/benchmark.js') },
+      { id: "M5", desc: "TTL index on updatedAt for automatic ghost cleanup", dates: "21-23 Oct", check: () => fs.existsSync('server/geo/src/schema/ttl.ts') || fs.existsSync('server/geo/src/schema/ttl.js') },
+      { id: "M6", desc: "Query & write-rate tuning (throttle/batch writes)", dates: "27-30 Oct", check: () => fs.existsSync('server/geo/src/tuning/batcher.ts') || fs.existsSync('server/geo/src/tuning/batcher.js') },
+      { id: "M7", desc: "Design rooms collection { roomId, size, obstacles }", dates: "30 Oct - 1 Nov", check: () => fs.existsSync('server/geo/src/schema/room.ts') || fs.existsSync('server/geo/src/schema/room.js') },
+      { id: "M8", desc: "Room persistence & obstacle data exposure", dates: "2-5 Nov", check: () => fs.existsSync('server/geo/src/repository/roomRepo.ts') || fs.existsSync('server/geo/src/repository/roomRepo.js') },
       { id: "M9", desc: "Collection diagram, DB documentation & report chapter", dates: "5-6 Nov", check: () => fs.existsSync('server/geo/docs/chapter.md') }
     ]
   },

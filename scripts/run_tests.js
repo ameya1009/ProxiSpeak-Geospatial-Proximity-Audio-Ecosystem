@@ -578,11 +578,254 @@ function runObstacleAndSpatialAuditTest() {
   console.log('✔ Obstacle collision, acoustic line-of-sight ray casting, and <20ms spatial audit diagnostics: OK');
 }
 
+// --- Test 17: Task A8 - DistanceGainNode Audio Stream Routing & Smooth Parameter Scheduling ---
+function runDistanceGainNodeTest() {
+  const { DistanceGainNode } = require('../client/audio/src/DistanceGainNode');
+  const mockCtx = createMockAudioContext();
+
+  const gainNode = new DistanceGainNode(mockCtx, {
+    minDistance: 30,
+    maxDistance: 100,
+    rolloffModel: 'linear',
+    rampTime: 0.05
+  });
+
+  // 1. Initial attenuation curve checks
+  assert.strictEqual(gainNode.calculateAttenuation(0), 1.0, 'Full volume at distance 0');
+  assert.strictEqual(gainNode.calculateAttenuation(30), 1.0, 'Full volume at minDistance (30px)');
+  assert.strictEqual(gainNode.calculateAttenuation(65), 0.5, 'Half volume halfway (65px)');
+  assert.strictEqual(gainNode.calculateAttenuation(100), 0.0, 'Zero volume at maxDistance (100px)');
+  assert.strictEqual(gainNode.calculateAttenuation(150), 0.0, 'Zero volume beyond maxDistance');
+
+  // 2. Smooth parameter ramping without clicks
+  const scheduledGain = gainNode.updateDistance(65);
+  assert.strictEqual(scheduledGain, 0.5);
+  const diag = gainNode.getDiagnostics();
+  assert.strictEqual(diag.currentGain, 0.5);
+  assert.strictEqual(diag.lastRampSchedule.duration, 0.05, '50ms click-prevention ramp scheduled');
+  assert.strictEqual(diag.inRange, true);
+
+  // 3. Move beyond earshot -> distance gating
+  gainNode.updateDistance(120);
+  assert.strictEqual(gainNode.getDiagnostics().currentGain, 0.0);
+  assert.strictEqual(gainNode.isInAudibleRange(), false, 'Out of audible range');
+
+  // 4. Mute / Unmute
+  gainNode.updateDistance(30);
+  assert.strictEqual(gainNode.getDiagnostics().currentGain, 1.0);
+  gainNode.mute();
+  assert.strictEqual(gainNode.getDiagnostics().currentGain, 0.0);
+  assert.strictEqual(gainNode.getDiagnostics().muted, true);
+  gainNode.unmute();
+  assert.strictEqual(gainNode.getDiagnostics().currentGain, 1.0);
+  assert.strictEqual(gainNode.getDiagnostics().muted, false);
+
+  // 5. Alternate models (inverse and exponential)
+  const inverseNode = new DistanceGainNode(mockCtx, { minDistance: 30, maxDistance: 100, rolloffModel: 'inverse' });
+  assert.strictEqual(inverseNode.calculateAttenuation(30), 1.0);
+  assert.ok(inverseNode.calculateAttenuation(65) > 0 && inverseNode.calculateAttenuation(65) < 1.0);
+  assert.strictEqual(inverseNode.calculateAttenuation(100), 0.0);
+
+  // 6. Source attachment & cleanup
+  const mockSource = { connect: () => {}, disconnect: () => {} };
+  gainNode.attachSource(mockSource);
+  assert.strictEqual(gainNode.getDiagnostics().hasSource, true);
+  gainNode.destroy();
+  assert.strictEqual(gainNode.getDiagnostics().hasSource, false);
+
+  console.log('✔ Task A8: DistanceGainNode stream routing, smooth ramps, and click prevention: OK');
+}
+
+// --- Test 18: Tasks M1 & M5 - MongoDB 2D Index Schema, Validation & TTL Sweeper ---
+function runPositionSchemaAndTTLTest() {
+  const { validatePosition, PositionIndexDefinitions } = require('../server/geo/src/schema/position');
+  const { GhostAvatarSweeper, TTLIndexDefinition } = require('../server/geo/src/schema/ttl');
+
+  // 1. Position Schema Index definition
+  assert.strictEqual(PositionIndexDefinitions[0].fields.pos, '2d', 'Uses 2D Cartesian planar index');
+  assert.strictEqual(PositionIndexDefinitions[1].options.unique, true, 'Unique user/room index');
+
+  // 2. Position validation
+  assert.strictEqual(validatePosition(null).valid, false);
+  assert.strictEqual(validatePosition({ userId: '', roomId: 'r1', pos: [10, 20] }).valid, false);
+  assert.strictEqual(validatePosition({ userId: 'u1', roomId: 'r1', pos: 'bad' }).valid, false);
+  assert.strictEqual(validatePosition({ userId: 'u1', roomId: 'r1', pos: [NaN, 20] }).valid, false);
+  
+  const validResult = validatePosition({ userId: 'alice', roomId: 'office-1', pos: [120, 340] });
+  assert.strictEqual(validResult.valid, true);
+  assert.deepStrictEqual(validResult.normalized.pos, [120, 340]);
+
+  // 3. TTL Index specification
+  assert.strictEqual(TTLIndexDefinition.fields.updatedAt, 1);
+  assert.strictEqual(TTLIndexDefinition.options.expireAfterSeconds, 30);
+
+  // 4. Ghost Avatar Sweeper
+  const sweeper = new GhostAvatarSweeper({ expireAfterSeconds: 30 });
+  const map = new Map();
+  const now = Date.now();
+  map.set('office-1:active-user', { userId: 'active-user', updatedAt: new Date(now - 5000) });
+  map.set('office-1:ghost-user', { userId: 'ghost-user', updatedAt: new Date(now - 45000) }); // >30s old
+
+  const evicted = sweeper.sweepInMemory(map, now);
+  assert.strictEqual(evicted.length, 1);
+  assert.strictEqual(evicted[0], 'ghost-user', 'Ghost avatar automatically evicted');
+  assert.strictEqual(map.has('office-1:ghost-user'), false);
+  assert.strictEqual(map.has('office-1:active-user'), true);
+
+  console.log('✔ Tasks M1 & M5: Position 2D schema validation, TTL indexing, and ghost avatar cleanup: OK');
+}
+
+// --- Test 19: Task M2 - PositionRepository ($near & $geoWithin) ---
+async function runPositionRepositoryTest() {
+  const { PositionRepository } = require('../server/geo/src/repository/positionRepo');
+  const repo = new PositionRepository();
+  const roomId = 'test-room';
+
+  // 1. Upsert positions
+  await repo.upsertPosition('user-a', roomId, [100, 100]);
+  await repo.upsertPosition('user-b', roomId, [150, 100]); // 50px away
+  await repo.upsertPosition('user-c', roomId, [190, 100]); // 90px away
+  await repo.upsertPosition('user-d', roomId, [300, 100]); // 200px away (out of earshot)
+
+  assert.strictEqual(await repo.count(roomId), 4);
+  const posA = await repo.getPosition('user-a', roomId);
+  assert.deepStrictEqual(posA.pos, [100, 100]);
+
+  // 2. nearby ($near) query from user-a [100, 100] with 100px earshot
+  const nearA = await repo.nearby(roomId, [100, 100], 100, 10, 'user-a');
+  assert.strictEqual(nearA.length, 2, 'user-b and user-c are within 100px earshot');
+  assert.strictEqual(nearA[0].userId, 'user-b', 'user-b is closest (50px)');
+  assert.strictEqual(nearA[0].distance, 50);
+  assert.strictEqual(nearA[1].userId, 'user-c', 'user-c is second closest (90px)');
+  assert.strictEqual(nearA[1].distance, 90);
+
+  // 3. withinCircle ($geoWithin) query
+  const circleResults = await repo.withinCircle(roomId, [100, 100], 100);
+  assert.strictEqual(circleResults.length, 3, 'user-a, user-b, user-c inside 100px circle');
+
+  // 4. Remove user
+  await repo.removePosition('user-d', roomId);
+  assert.strictEqual(await repo.count(roomId), 3);
+  assert.strictEqual(await repo.getPosition('user-d', roomId), null);
+
+  repo.clear();
+  assert.strictEqual(await repo.count(roomId), 0);
+  console.log('✔ Task M2: PositionRepository upsert, remove, $near distance sorting, and $geoWithin: OK');
+}
+
+// --- Test 20: Task M3 - Proximity Clustering (Connected User Components) ---
+function runProximityClusteringTest() {
+  const { clusterUsersByProximity, getActiveConversations, findUserCluster } = require('../server/geo/src/clusters/proximityCluster');
+
+  // Group 1: Alice, Bob, Charlie forming an audio chain (Alice at 0, Bob at 60, Charlie at 120 -> all within 60px <= 100px)
+  // Group 2: David and Eve (David at 500, Eve at 550 -> 50px <= 100px)
+  // Isolated: Frank at (900, 900)
+  const users = [
+    { userId: 'alice', pos: [0, 0] },
+    { userId: 'bob', pos: [60, 0] },
+    { userId: 'charlie', pos: [120, 0] },
+    { userId: 'david', pos: [500, 0] },
+    { userId: 'eve', pos: [550, 0] },
+    { userId: 'frank', pos: [900, 900] }
+  ];
+
+  const clusters = clusterUsersByProximity(users, 100);
+  assert.strictEqual(clusters.length, 3, 'Three distinct spatial clusters');
+
+  // Group 1 should contain alice, bob, charlie
+  const group1 = clusters.find(c => c.members.includes('alice'));
+  assert.ok(group1);
+  assert.strictEqual(group1.size, 3);
+  assert.deepStrictEqual(group1.members.sort(), ['alice', 'bob', 'charlie']);
+  assert.deepStrictEqual(group1.centroid, [60, 0]);
+  assert.strictEqual(group1.isolated, false);
+
+  // Group 2 should contain david, eve
+  const group2 = clusters.find(c => c.members.includes('david'));
+  assert.ok(group2);
+  assert.strictEqual(group2.size, 2);
+  assert.deepStrictEqual(group2.members.sort(), ['david', 'eve']);
+
+  // Isolated Frank
+  const frankCluster = findUserCluster('frank', clusters);
+  assert.ok(frankCluster);
+  assert.strictEqual(frankCluster.isolated, true);
+
+  // Active conversations
+  const conversations = getActiveConversations(clusters);
+  assert.strictEqual(conversations.length, 2, 'Two multi-user conversation circles');
+
+  console.log('✔ Task M3: Spatial proximity clustering, connected components, and conversation grouping: OK');
+}
+
+// --- Test 21: Task M6 - PositionWriteBatcher (Write Throttling & Coalescing) ---
+async function runWriteBatcherTest() {
+  const { PositionRepository } = require('../server/geo/src/repository/positionRepo');
+  const { PositionWriteBatcher } = require('../server/geo/src/tuning/batcher');
+
+  const repo = new PositionRepository();
+  const batcher = new PositionWriteBatcher(repo, {
+    flushIntervalMs: 50,
+    maxBatchSize: 100,
+    autoStart: false // manual flush control for deterministic test
+  });
+
+  const roomId = 'room-speed';
+
+  // Simulate high-frequency 60Hz movements from 3 users emitting 10 updates each in the same 50ms window
+  for (let step = 0; step < 10; step++) {
+    batcher.queueUpdate('user-1', roomId, [100 + step, 200]);
+    batcher.queueUpdate('user-2', roomId, [300 + step, 400]);
+    batcher.queueUpdate('user-3', roomId, [500 + step, 600]);
+  }
+
+  // 30 incoming writes queued, but because of last-write-wins deduplication, only 3 writes pending!
+  assert.strictEqual(batcher.getPendingCount(), 3);
+  const flushed = await batcher.flushNow();
+  assert.strictEqual(flushed, 3, 'Flushed exactly 3 coalesced writes instead of 30');
+
+  const stats = batcher.getStats();
+  assert.strictEqual(stats.totalIncoming, 30);
+  assert.strictEqual(stats.totalFlushed, 3);
+  assert.strictEqual(stats.totalCoalesced, 27);
+  assert.strictEqual(stats.coalescingEfficiencyPct, 90.0, '90% write reduction efficiency achieved');
+
+  // Verify DB contains the latest positions
+  const pos1 = await repo.getPosition('user-1', roomId);
+  assert.deepStrictEqual(pos1.pos, [109, 200], 'Last-write-wins position stored');
+
+  batcher.stop();
+  console.log('✔ Task M6: PositionWriteBatcher write coalescing, throttling, and >70% efficiency: OK');
+}
+
+// --- Test 22: Task M4 - Geospatial Benchmark Harness (<20ms p99 Latency Assertion) ---
+async function runGeospatialBenchmarkTest() {
+  const { runGeospatialBenchmark } = require('../server/geo/benchmark');
+  const report = await runGeospatialBenchmark({
+    userCounts: [50, 100],
+    queriesPerUser: 5,
+    earshotRadius: 100
+  });
+
+  assert.strictEqual(report.allPassed, true, 'Benchmark p99 latency strictly < 20ms');
+  for (const res of report.results) {
+    assert.ok(res.p99Ms < 20.0, `p99 latency for ${res.userCount} users (${res.p99Ms}ms) < 20ms`);
+  }
+
+  console.log('✔ Task M4: Benchmark harness for 50 & 100 users with p99 < 20ms: OK');
+}
+
 async function runAll() {
   await runWebRTCLifecycleTest();
   await runProximityIntegrationTest();
   runObstacleAndSpatialAuditTest();
-  console.log('\nAll 16 audio spike, SpatialAudioMixer, multi-peer, WebRTCManager, ProximityIntegration, and Spatial Audit assertions passed cleanly.');
+  runDistanceGainNodeTest();
+  runPositionSchemaAndTTLTest();
+  await runPositionRepositoryTest();
+  runProximityClusteringTest();
+  await runWriteBatcherTest();
+  await runGeospatialBenchmarkTest();
+  console.log('\nAll 22 audio spike, SpatialAudioMixer, multi-peer, WebRTCManager, ProximityIntegration, DistanceGainNode, and Milind Geospatial Engine assertions passed cleanly.');
 }
 
 runAll().catch((err) => {

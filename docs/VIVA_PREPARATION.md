@@ -197,4 +197,63 @@ A single threshold (e.g. 100px) causes **connection flapping** or **rapid oscill
    - High frequencies are filtered via a low-pass biquad filter ($f_c \approx 800\text{ Hz}$).
    - Sound amplitude is attenuated (e.g. $-30\%$ to $-50\%$) to simulate wall/furniture transmission loss without completely muting the conversation.
 
+---
+
+## 9. Viva Focus: Task A8 — Web Audio Gain Scheduling & Audio Click Elimination
+
+### Q: Why do audio clicks and pops occur when updating gain based on avatar movement, and how does DistanceGainNode prevent them?
+**Answer**:
+1. **The Root Cause (Waveform Discontinuity)**:
+   - When a gain node value is changed abruptly (`gainNode.gain.value = newGain`), the analog waveform experiences a step discontinuity in amplitude.
+   - In the frequency domain (Fourier Transform), a sharp step function contains high-frequency impulse energy across all frequencies, which human ears perceive as an audible "pop" or "click".
+2. **The Solution in `DistanceGainNode`**:
+   - `DistanceGainNode` uses Web Audio API scheduled parameter automation:
+     ```javascript
+     gainNode.gain.cancelScheduledValues(now);
+     gainNode.gain.setValueAtTime(currentGain, now);
+     gainNode.gain.linearRampToValueAtTime(targetGain, now + rampDuration); // or exponentialRampToValueAtTime
+     ```
+   - By scheduling a linear or exponential cross-fade ramp over a 50ms smoothing window ($0.05\text{s}$), the derivative of the waveform remains continuous, completely eliminating popping artifacts even when an avatar teleports or moves rapidly.
+
+### Q: What is the difference between Linear, Inverse, and Exponential distance attenuation models?
+**Answer**:
+- **Linear**: $g(d) = 1.0 - \frac{d - d_{min}}{d_{max} - d_{min}}$. Gain drops uniformly with distance. Computationally lightweight and intuitive for 2D game maps.
+- **Inverse Distance**: $g(d) = \frac{d_{min}}{d_{min} + \alpha(d - d_{min})}$. Models real-world point-source acoustic pressure dropping by $1/r$ (inverse square law for intensity).
+- **Exponential**: $g(d) = e^{-\alpha \cdot \frac{d - d_{min}}{\text{span}}}$. Rapid attenuation suitable for intimate proximity or noisy office environments.
+
+---
+
+## 10. Viva Focus: Tasks M1–M6 — Milind's Geospatial Engine & MongoDB Architecture
+
+### Q: Why does ProxiSpeak use a MongoDB Cartesian `2d` index instead of a spherical `2dsphere` index?
+**Answer**:
+- `2dsphere` calculates distances on a curved Earth sphere using the Great Circle Distance (Haversine formula in radians/meters).
+- ProxiSpeak's virtual office canvas operates on a **flat 2D Euclidean Cartesian plane** with pixel coordinates $(x, y)$.
+- MongoDB's `2d` index uses Euclidean distance ($d = \sqrt{\Delta x^2 + \Delta y^2}$), perfectly matching the canvas coordinate space and avoiding trigonometric distortion or projection errors.
+
+### Q: What is the architectural difference between `$near` and `$geoWithin`?
+**Answer**:
+- **`$near`**:
+  - Requires a geospatial index (`2d` or `2dsphere`).
+  - Sorts documents in ascending order of distance from the query point.
+  - Used for peer discovery: "Find the 5 closest avatars within 100px earshot".
+- **`$geoWithin`**:
+  - Uses bounding shapes (e.g. `$center: [[x, y], radius]`).
+  - Does **not** sort documents by distance (pure inclusion filter).
+  - Can operate without a geospatial index (though faster with one) and is lighter when distance ordering is not required.
+
+### Q: How does Task M5's TTL index and ghost avatar sweeper prevent memory leaks and zombie avatars?
+**Answer**:
+- In websocket-based spatial systems, clients occasionally disconnect abruptly without sending a formal `leave` event (browser crashes, network drops).
+- MongoDB TTL index `{ updatedAt: 1 }, { expireAfterSeconds: 30 }` instructs the MongoDB background thread to automatically purge inactive avatar documents older than 30 seconds.
+- `GhostAvatarSweeper` provides an in-memory equivalent, guaranteeing zombie avatars disappear within 30 seconds and stop consuming spatial index memory.
+
+### Q: Why is the Task M6 write batcher critical for 60 FPS multiplayer canvas games?
+**Answer**:
+- If 50 active clients move at 60 FPS, direct database writes would yield $50 \times 60 = 3,000\text{ writes/sec}$, causing database lock contention and I/O saturation.
+- `PositionWriteBatcher` implements **last-write-wins coalescing** over micro-batches (e.g. 50ms = 20Hz):
+  - 10 movements emitted by user $A$ in 50ms are coalesced into a single final position.
+  - Achieves **$\ge 90\%$ write reduction**, slashing 3,000 writes/sec down to 300 writes/sec while maintaining sub-millisecond perceived latency for participants.
+
+
 
