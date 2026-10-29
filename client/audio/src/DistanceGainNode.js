@@ -139,19 +139,20 @@ class DistanceGainNode {
       return 0.0;
     }
 
+    const span = Math.max(0.0001, this.maxDistance - this.minDistance);
+
     switch (this.rolloffModel) {
       case 'inverse': {
         // Inverse distance formula: minDistance / (minDistance + rolloffFactor * (d - minDistance))
         const effectiveDist = d - this.minDistance;
         const gain = this.minDistance / (this.minDistance + this.rolloffFactor * effectiveDist);
         // Cutoff taper towards maxDistance
-        const cutoffRatio = (this.maxDistance - d) / (this.maxDistance - this.minDistance);
+        const cutoffRatio = (this.maxDistance - d) / span;
         return Math.max(0, Math.min(1.0, gain * cutoffRatio));
       }
 
       case 'exponential': {
         // Exponential decay: e^(-rolloffFactor * (d - minDistance) / span)
-        const span = this.maxDistance - this.minDistance;
         const normalized = (d - this.minDistance) / span;
         const gain = Math.exp(-3.0 * this.rolloffFactor * normalized);
         // Taper to 0 at boundary
@@ -161,7 +162,6 @@ class DistanceGainNode {
       case 'linear':
       default: {
         // Linear slope: 1.0 at minDistance down to 0.0 at maxDistance
-        const span = this.maxDistance - this.minDistance;
         const gain = 1.0 - (d - this.minDistance) / span;
         return Math.max(0, Math.min(1.0, gain));
       }

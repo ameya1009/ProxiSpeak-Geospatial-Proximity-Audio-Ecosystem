@@ -23,6 +23,7 @@ function calculateGain(distance, earshotRadius = 100) {
 }
 
 function calculatePan(dx, earshotRadius = 100) {
+  if (earshotRadius <= 0) return 0.0;
   const clamped = Math.max(-earshotRadius, Math.min(earshotRadius, dx));
   return clamped / earshotRadius;
 }

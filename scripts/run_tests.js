@@ -26,6 +26,7 @@ assert.strictEqual(calculatePan(100, 100), 1.0, 'Hard right pan');
 assert.strictEqual(calculatePan(50, 100), 0.5, 'Right pan 0.5');
 assert.strictEqual(calculatePan(-500, 100), -1.0, 'Clamped hard left beyond range');
 assert.strictEqual(calculatePan(500, 100), 1.0, 'Clamped hard right beyond range');
+assert.strictEqual(calculatePan(50, 0), 0.0, 'Zero earshot radius gracefully defaults to center pan without NaN');
 console.log('✔ Stereo panning & clamping: OK');
 
 // Test 4: Web Audio API Node Graph Wiring (Oscillator -> StereoPanner -> Gain -> Destination)
@@ -625,6 +626,12 @@ function runDistanceGainNodeTest() {
   assert.strictEqual(inverseNode.calculateAttenuation(30), 1.0);
   assert.ok(inverseNode.calculateAttenuation(65) > 0 && inverseNode.calculateAttenuation(65) < 1.0);
   assert.strictEqual(inverseNode.calculateAttenuation(100), 0.0);
+
+  // Zero-span boundary test (minDistance == maxDistance)
+  const zeroSpanNode = new DistanceGainNode(mockCtx, { minDistance: 50, maxDistance: 50 });
+  assert.strictEqual(zeroSpanNode.calculateAttenuation(30), 1.0);
+  assert.strictEqual(zeroSpanNode.calculateAttenuation(70), 0.0);
+  assert.strictEqual(isNaN(zeroSpanNode.calculateAttenuation(50)), false, 'Zero span does not produce NaN');
 
   // 6. Source attachment & cleanup
   const mockSource = { connect: () => {}, disconnect: () => {} };
