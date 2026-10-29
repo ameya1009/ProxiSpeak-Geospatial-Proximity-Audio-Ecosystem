@@ -177,3 +177,26 @@
 * **Blockers**:
   - None on Ameya's branch. All modules stand 100% test-covered and functional.
 
+---
+
+### Check-in: 28–29 October 2026 (Tasks A9 & A10 Implementation & Reassignment Delivery)
+* **Committed**:
+  - **Task A9 (Ameya)**: Implemented [`client/audio/src/ConnectionCapper.js`](file:///c:/Users/ADMIN/Desktop/ProxiSpeak-Geospatial-Proximity-Audio-Ecosystem/client/audio/src/ConnectionCapper.js):
+    - Caps active simultaneous WebRTC connections to $N$ nearest peers (default $N=4$) to prevent mesh bandwidth/CPU saturation.
+    - Dual-layer hysteresis: spatial hysteresis (100px enter / 120px leave) and preemption hysteresis (15px margin required for closer candidates to evict furthest active peer), eliminating connection flapping.
+    - Full callback lifecycle: `onConnect`, `onDisconnect`, `onEvict`.
+  - **Task A10 (Ameya)**: Implemented [`client/audio/src/ObstacleAttenuation.js`](file:///c:/Users/ADMIN/Desktop/ProxiSpeak-Geospatial-Proximity-Audio-Ecosystem/client/audio/src/ObstacleAttenuation.js):
+    - 2D AABB acoustic ray casting against office furniture and partition walls.
+    - Decibel-based transmission loss modeling (e.g. 6dB per desk, 14dB per wall converted to linear amplitude).
+    - Web Audio `BiquadFilterNode` low-pass frequency dampening (clear 20,000Hz down to occluded 900Hz).
+    - Relative horizontal displacement stereo panning calculations.
+  - **Milind's Transferred Tasks Finalized**: Completed Tasks M7 (room schema), M8 (room repository with obstacle spatial queries), and M9 (comprehensive architectural report chapter in `server/geo/docs/chapter.md`).
+  - **Official Reassignment Documentation**: Generated revised task allocation PDF [`docs/WORK_TASK_SHEET_UPDATED.pdf`](file:///c:/Users/ADMIN/Desktop/ProxiSpeak-Geospatial-Proximity-Audio-Ecosystem/docs/WORK_TASK_SHEET_UPDATED.pdf) and updated [`docs/WORK_DISTRIBUTION.md`](file:///c:/Users/ADMIN/Desktop/ProxiSpeak-Geospatial-Proximity-Audio-Ecosystem/docs/WORK_DISTRIBUTION.md).
+  - **Audited Unit Test Suite**: Extended [`scripts/run_tests.js`](file:///c:/Users/ADMIN/Desktop/ProxiSpeak-Geospatial-Proximity-Audio-Ecosystem/scripts/run_tests.js) to **26/26 unit test suites passing cleanly (100%)**.
+  - **Progress Check**: Ameya at **90.9% (10/11 core tasks)** and Geospatial Engine at **100% (9/9 tasks)** on `Ameya's-branch`.
+* **Next**:
+  - Task A11 (4–6 Nov): Final deployment over HTTPS, load testing, assembly of final report and slide deck.
+* **Blockers**:
+  - None on Ameya's branch. Zero broken builds.
+
+

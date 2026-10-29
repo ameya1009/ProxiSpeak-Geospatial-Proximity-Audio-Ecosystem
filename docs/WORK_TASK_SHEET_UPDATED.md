@@ -56,9 +56,9 @@
 | **A6** | 19–23 Oct | Proximity integration: 100px enter, 120px leave hysteresis, obstacle ray casting, audio cut-off | `client/audio/src/ProximityIntegration.js` | **Completed ✅** |
 | **A7** | 24–25 Oct | Mid Review rehearsal 3x, timing audit, network chaos drill, backup demo runbook | `docs/MID_REVIEW_REHEARSAL.md` | **Completed ✅** |
 | **A8** | 27–30 Oct | `DistanceGainNode`: Web Audio remote stream routing, 50ms smooth ramps, click elimination | `client/audio/src/DistanceGainNode.js` | **Completed ✅** |
-| **A9** | 30 Oct – 1 Nov | Cap simultaneous connections to N nearest peers + leave hysteresis | `client/audio/src/ConnectionCapper.js` | In Progress |
-| **A10** | 2–4 Nov | Stereo or 3D panning from relative X, obstacle sound attenuation | `client/audio/src/ObstacleAttenuation.js` | Scheduled |
-| **A11** | 4–6 Nov | Deploy over HTTPS, load test, assemble final report and PPT | `docs/FINAL_REPORT.md` | Scheduled |
+| **A9** | 30 Oct – 1 Nov | `ConnectionCapper`: Cap simultaneous connections to N nearest peers + leave hysteresis | `client/audio/src/ConnectionCapper.js` | **Completed ✅** |
+| **A10** | 2–4 Nov | `ObstacleAttenuation`: Stereo panning from relative X, obstacle sound attenuation & biquad filter | `client/audio/src/ObstacleAttenuation.js` | **Completed ✅** |
+| **A11** | 4–6 Nov | Deploy over HTTPS, load test, assemble final report and PPT | `docs/FINAL_REPORT.md` | In Progress |
 
 ---
 

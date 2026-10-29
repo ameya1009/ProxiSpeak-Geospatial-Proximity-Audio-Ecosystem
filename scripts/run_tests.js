@@ -879,6 +879,114 @@ async function runRoomRepoAndDocsTest() {
   console.log('✔ Tasks M8 & M9: Room persistence, obstacle spatial queries, and DB documentation chapter: OK');
 }
 
+// --- Test 25: Task A9 - ConnectionCapper (Cap to N Nearest Peers + Leave Hysteresis) ---
+function runConnectionCapperTest() {
+  const { ConnectionCapper } = require('../client/audio/src/ConnectionCapper');
+
+  const connected = [];
+  const disconnected = [];
+  const evicted = [];
+
+  const capper = new ConnectionCapper({
+    maxConnections: 2, // Cap at 2 simultaneous connections
+    enterRadius: 100,
+    leaveRadius: 120,
+    swapHysteresis: 15,
+    onConnect: (id, dist) => connected.push({ id, dist }),
+    onDisconnect: (id, reason) => disconnected.push({ id, reason }),
+    onEvict: (evictedId, newId) => evicted.push({ evictedId, newId })
+  });
+
+  capper.setListenerPosition(0, 0);
+
+  // 1. Peer A at 40px, Peer B at 70px -> both admitted (2 slots filled)
+  capper.updatePeerPosition('peerA', 40, 0);
+  capper.updatePeerPosition('peerB', 70, 0);
+
+  assert.strictEqual(capper.getActivePeers().length, 2);
+  assert.strictEqual(capper.isPeerActive('peerA'), true);
+  assert.strictEqual(capper.isPeerActive('peerB'), true);
+  assert.strictEqual(connected.length, 2);
+
+  // 2. Peer C arrives at 65px: closer than Peer B (70px), BUT only 5px closer (< swapHysteresis of 15px)
+  // MUST NOT evict Peer B (anti-thrashing hysteresis)
+  capper.updatePeerPosition('peerC', 65, 0);
+  assert.strictEqual(capper.isPeerActive('peerB'), true, 'Peer B not evicted due to swap hysteresis margin');
+  assert.strictEqual(capper.isPeerActive('peerC'), false, 'Peer C rejected pending sufficient distance delta');
+
+  // 3. Peer C moves to 50px: now 20px closer than Peer B (70 - 50 = 20 > 15px)
+  // MUST evict Peer B and admit Peer C
+  capper.updatePeerPosition('peerC', 50, 0);
+  assert.strictEqual(capper.isPeerActive('peerB'), false, 'Peer B evicted by significantly closer Peer C');
+  assert.strictEqual(capper.isPeerActive('peerC'), true, 'Peer C admitted');
+  assert.strictEqual(evicted.length, 1);
+  assert.strictEqual(evicted[0].evictedId, 'peerB');
+  assert.strictEqual(evicted[0].newId, 'peerC');
+
+  // Peer B walks away out of earshot (200px)
+  capper.updatePeerPosition('peerB', 200, 0);
+
+  // 4. Peer A moves to 110px: within 100px - 120px leave hysteresis buffer -> stays connected
+  capper.updatePeerPosition('peerA', 110, 0);
+  assert.strictEqual(capper.isPeerActive('peerA'), true, 'Peer A remains connected in leave hysteresis buffer (110px)');
+
+  // 5. Peer A moves to 125px (> 120px leaveRadius) -> naturally evicted
+  capper.updatePeerPosition('peerA', 125, 0);
+  assert.strictEqual(capper.isPeerActive('peerA'), false, 'Peer A evicted after exceeding leave radius');
+
+  // Clean clear
+  capper.clear();
+  assert.strictEqual(capper.getActivePeers().length, 0);
+  console.log('✔ Task A9: ConnectionCapper N-peer cap, swap hysteresis margin, and leave buffer: OK');
+}
+
+// --- Test 26: Task A10 - ObstacleAttenuation (AABB Ray-Casting, Acoustic Loss, and Low-Pass Filter) ---
+function runObstacleAttenuationTest() {
+  const { ObstacleAttenuation } = require('../client/audio/src/ObstacleAttenuation');
+  const attenuator = new ObstacleAttenuation({
+    baseDeskLossDb: 6.0,
+    baseWallLossDb: 14.0,
+    clearCutoffHz: 20000,
+    occludedCutoffHz: 900
+  });
+
+  const obstacles = [
+    { id: 'desk-1', x: 100, y: 100, width: 120, height: 60, type: 'desk' },
+    { id: 'wall-1', x: 300, y: 50, width: 20, height: 200, type: 'wall' }
+  ];
+
+  // 1. Clear Line-of-sight: from (0, 0) to (50, 50)
+  const clearResult = attenuator.analyzeLineOfSight({ x: 0, y: 0 }, { x: 50, y: 50 }, obstacles);
+  assert.strictEqual(clearResult.occluded, false);
+  assert.strictEqual(clearResult.totalLossDb, 0);
+  assert.strictEqual(clearResult.gainMultiplier, 1.0);
+  assert.strictEqual(clearResult.cutoffFrequencyHz, 20000);
+
+  // 2. Occluded by Desk 1: from (50, 130) to (250, 130)
+  const deskResult = attenuator.analyzeLineOfSight({ x: 50, y: 130 }, { x: 250, y: 130 }, obstacles);
+  assert.strictEqual(deskResult.occluded, true);
+  assert.strictEqual(deskResult.intersectedObstacles.length, 1);
+  assert.strictEqual(deskResult.intersectedObstacles[0].id, 'desk-1');
+  assert.strictEqual(deskResult.totalLossDb, 6.0);
+  assert.ok(deskResult.gainMultiplier < 0.6 && deskResult.gainMultiplier > 0.4, '6dB loss produces ~0.501 linear gain');
+  assert.ok(deskResult.cutoffFrequencyHz <= 900, 'Low-pass filter frequency clamped for acoustic occlusion');
+
+  // 3. Occluded by both Desk 1 and Wall 1: from (50, 130) to (400, 130)
+  const multiResult = attenuator.analyzeLineOfSight({ x: 50, y: 130 }, { x: 400, y: 130 }, obstacles);
+  assert.strictEqual(multiResult.occluded, true);
+  assert.strictEqual(multiResult.intersectedObstacles.length, 2);
+  assert.strictEqual(multiResult.totalLossDb, 20.0, '6dB desk + 14dB wall = 20dB cumulative loss');
+  assert.strictEqual(multiResult.gainMultiplier, 0.1, '20dB loss produces 0.1 linear gain');
+
+  // 4. Stereo panning calculation
+  assert.strictEqual(attenuator.calculatePan(0, 100), 0.0, 'Center pan');
+  assert.strictEqual(attenuator.calculatePan(-100, 100), -1.0, 'Hard left pan');
+  assert.strictEqual(attenuator.calculatePan(100, 100), 1.0, 'Hard right pan');
+  assert.strictEqual(attenuator.calculatePan(50, 100), 0.5, 'Right pan 0.5');
+
+  console.log('✔ Task A10: ObstacleAttenuation AABB ray-casting, dB transmission loss, biquad filter, and stereo pan: OK');
+}
+
 async function runAll() {
   await runWebRTCLifecycleTest();
   await runProximityIntegrationTest();
@@ -891,7 +999,9 @@ async function runAll() {
   await runGeospatialBenchmarkTest();
   runRoomSchemaTest();
   await runRoomRepoAndDocsTest();
-  console.log('\nAll 24 audio spike, SpatialAudioMixer, multi-peer, WebRTCManager, ProximityIntegration, DistanceGainNode, and Complete Geospatial Engine (M1-M9) assertions passed cleanly.');
+  runConnectionCapperTest();
+  runObstacleAttenuationTest();
+  console.log('\nAll 26 audio spike, SpatialAudioMixer, multi-peer, WebRTCManager, ProximityIntegration, DistanceGainNode, ConnectionCapper, ObstacleAttenuation, and Geospatial Engine assertions passed cleanly.');
 }
 
 runAll().catch((err) => {

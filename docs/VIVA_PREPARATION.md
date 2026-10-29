@@ -255,5 +255,32 @@ A single threshold (e.g. 100px) causes **connection flapping** or **rapid oscill
   - 10 movements emitted by user $A$ in 50ms are coalesced into a single final position.
   - Achieves **$\ge 90\%$ write reduction**, slashing 3,000 writes/sec down to 300 writes/sec while maintaining sub-millisecond perceived latency for participants.
 
+---
+
+## 11. Viva Focus: Tasks A9 & A10 — Connection Capping, Swap Hysteresis & Acoustic Obstacle Filtering
+
+### Q: Why is connection capping necessary in a WebRTC mesh, and how does ConnectionCapper work?
+**Answer**:
+1. **The Scaling Bottleneck ($O(M^2)$)**:
+   - A full WebRTC mesh network requires each participant to maintain peer connections with every other participant.
+   - For $M$ clients, total network connections equal $\frac{M(M-1)}{2}$. For $M=50$ users, that equates to 1,225 connections, and each user's browser must encode and upload 49 audio streams simultaneously ($49 \times 40\text{kbps} \approx 2\text{Mbps}$ upstream), leading to packet loss and browser crashes.
+2. **The `ConnectionCapper` Solution**:
+   - `ConnectionCapper` strictly caps active `RTCPeerConnection`s to the **$N$ closest peers** (e.g. $N=4$).
+   - Even if 50 avatars congregate in a room, a client only streams audio with the 4 nearest colleagues, keeping CPU and bandwidth usage flat ($O(1)$ per client).
+
+### Q: What is "Swap Hysteresis" and how does it prevent connection thrashing?
+**Answer**:
+- If all $N=4$ connection slots are filled, a 5th candidate peer might move slightly closer than the 4th active peer (e.g. active peer at 70px, candidate at 69px).
+- Without swap hysteresis, tiny coordinate fluctuations (1px jitter) would trigger rapid, alternating peer disconnections and WebRTC renegotiations (connection thrashing).
+- `ConnectionCapper` enforces a **15px swap margin**: a challenger peer must be at least $15\text{px}$ closer than the furthest active peer ($d_{challenger} + 15\text{px} < d_{active}$) to preempt their connection slot.
+
+### Q: How does Task A10 model realistic acoustic occlusion through obstacles?
+**Answer**:
+1. **Transmission Loss**: When ray-casting detects furniture or walls between listener and speaker, sound intensity is attenuated based on material decibel loss ($6\text{dB}$ for office desks, $14\text{dB}$ for walls):
+   $$g_{\text{loss}} = 10^{-\frac{\Delta\text{dB}}{20}}$$
+   A 6dB reduction cuts amplitude by $\sim 50\%$, while 20dB cuts amplitude by $90\%$.
+2. **High-Frequency Damping**: Sound waves diffract around and penetrate obstacles non-linearly; high frequencies are absorbed while low bass notes pass through. `ObstacleAttenuation` inserts a Web Audio `BiquadFilterNode` (`type = 'lowpass'`), dropping cutoff frequency from $20,000\text{Hz}$ down to $900\text{Hz}$ or lower when occluded, recreating a muffled acoustic presence.
+
+
 
 
