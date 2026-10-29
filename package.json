@@ -5,6 +5,8 @@
   "private": true,
   "scripts": {
     "progress": "node scripts/check_progress.js",
-    "test": "node scripts/run_tests.js"
+    "test": "node scripts/run_tests.js",
+    "serve": "node scripts/serve.js",
+    "start": "node scripts/serve.js"
   }
 }
