@@ -1,8 +1,11 @@
 /**
  * ProxiSpeak Localhost Development & Demo Server
  * Zero external dependencies - pure Node.js HTTP server.
- * Serves the interactive Web Audio Mesh, Audio Spike Lab, Geospatial Engine Explorer,
- * Project Documentation, and an Interactive Local Test Runner API.
+ * Combines deliverables from ALL branches on localhost:
+ * - Harpreet---frontend: 2D Virtual World (React/Canvas office with avatars and obstacles)
+ * - Abhishek-backend: Location API (/api/users/location & /api/users/locations)
+ * - Ameya's-branch: Web Audio Engine, WebRTC Audio Mesh, Connection Capper & Obstacle Attenuation
+ * - Milind-database (Transferred): MongoDB 2D indexing, $near queries, clustering & benchmarks
  */
 
 const http = require('http');
@@ -13,6 +16,9 @@ const { exec } = require('child_process');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
 const DEFAULT_PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+
+// In-memory user locations store (Abhishek's backend state)
+const userLocations = {};
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -38,7 +44,7 @@ function renderLandingPage(port) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ProxiSpeak - Localhost Portal</title>
+  <title>ProxiSpeak - Unified Multi-Branch Localhost Hub</title>
   <style>
     :root {
       --bg: #0b0f19;
@@ -63,12 +69,12 @@ function renderLandingPage(port) {
       min-height: 100vh;
     }
     .container {
-      max-width: 980px;
+      max-width: 1050px;
       width: 100%;
     }
     header {
       text-align: center;
-      margin-bottom: 2.5rem;
+      margin-bottom: 2rem;
     }
     h1 {
       font-size: 2.3rem;
@@ -79,29 +85,37 @@ function renderLandingPage(port) {
     }
     p.lead {
       color: var(--muted);
-      font-size: 1.1rem;
+      font-size: 1.05rem;
+    }
+    .badge-bar {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
     }
     .badge {
       display: inline-block;
-      padding: 0.35rem 0.85rem;
+      padding: 0.35rem 0.75rem;
       border-radius: 9999px;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       font-weight: 600;
-      background: #0369a1;
-      color: #e0f2fe;
-      margin-top: 1rem;
     }
+    .badge-ameya { background: #0369a1; color: #e0f2fe; }
+    .badge-harpreet { background: #065f46; color: #d1fae5; }
+    .badge-abhishek { background: #854d0e; color: #fef3c7; }
+    .badge-milind { background: #4c1d95; color: #ede9fe; }
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
       gap: 1.5rem;
-      margin-bottom: 2.5rem;
+      margin-bottom: 2rem;
     }
     .card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 1.75rem;
+      padding: 1.5rem;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -111,14 +125,27 @@ function renderLandingPage(port) {
       transform: translateY(-4px);
       border-color: var(--accent);
     }
+    .card-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+    .card-tag {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+    }
     .card h2 {
-      font-size: 1.25rem;
-      margin-bottom: 0.5rem;
+      font-size: 1.2rem;
+      margin-bottom: 0.4rem;
       color: #fff;
     }
     .card p {
       color: var(--muted);
-      font-size: 0.9rem;
+      font-size: 0.875rem;
       line-height: 1.5;
       margin-bottom: 1.25rem;
     }
@@ -127,11 +154,11 @@ function renderLandingPage(port) {
       text-align: center;
       background: var(--accent);
       color: #0b0f19;
-      padding: 0.65rem 1.25rem;
+      padding: 0.6rem 1.2rem;
       border-radius: 8px;
       text-decoration: none;
       font-weight: 700;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       transition: background 0.15s;
     }
     .btn:hover {
@@ -150,7 +177,7 @@ function renderLandingPage(port) {
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 1.5rem;
-      margin-bottom: 2.5rem;
+      margin-bottom: 2rem;
     }
     .test-runner-header {
       display: flex;
@@ -168,7 +195,7 @@ function renderLandingPage(port) {
       font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
       font-size: 0.8rem;
       color: #38bdf8;
-      max-height: 240px;
+      max-height: 220px;
       overflow-y: auto;
       white-space: pre-wrap;
     }
@@ -184,43 +211,93 @@ function renderLandingPage(port) {
 <body>
   <div class="container">
     <header>
-      <h1>🎙️ ProxiSpeak Localhost Portal</h1>
-      <p class="lead">Geospatial Proximity Audio Communication Ecosystem</p>
-      <div class="badge">Active Branch: Ameya's-branch (100% Passing Tests)</div>
+      <h1>🎙️ ProxiSpeak Unified Localhost Hub</h1>
+      <p class="lead">Combining All Deliverables Across Branches in One Localhost Environment</p>
+      <div class="badge-bar">
+        <span class="badge badge-ameya">Ameya: Audio & WebRTC Mesh (95%)</span>
+        <span class="badge badge-harpreet">Harpreet: 2D React Canvas (60%)</span>
+        <span class="badge badge-abhishek">Abhishek: Signaling & API (22%)</span>
+        <span class="badge badge-milind">Milind &rarr; Ameya: Geospatial Engine (100%)</span>
+      </div>
     </header>
 
     <div class="grid">
-      <!-- Card 1: Proximity Audio Mesh -->
+      <!-- 1. Ameya's Audio Mesh -->
       <div class="card">
         <div>
-          <h2>🚀 Proximity Audio Mesh (Tasks A5-A10)</h2>
-          <p>Two-browser interactive proximity audio room with 2D Canvas avatar movements, 100px/120px dual spatial hysteresis, Task A10 AABB ray-casting (-6dB desk, -14dB wall + 900Hz biquad filter), Task A9 N=4 Connection Capper, and Task A8 smooth parameter ramping.</p>
+          <div class="card-meta">
+            <span class="card-tag">Branch: Ameya's-branch</span>
+            <span style="color:#38bdf8; font-size:0.75rem; font-weight:700;">Tasks A5-A10</span>
+          </div>
+          <h2>🚀 Spatial Audio Mesh Simulation</h2>
+          <p>Two-browser WebRTC audio mesh with dual spatial hysteresis (100px enter, 120px leave), N=4 Connection Capper with 15px swap margin, and AABB ray-casting (-6dB desk, -14dB wall + 900Hz biquad filter).</p>
         </div>
-        <a class="btn" href="/client/audio/mesh.html" target="_blank">Launch Mesh Simulation ➔</a>
+        <a class="btn" href="/client/audio/mesh.html" target="_blank">Launch Audio Mesh ➔</a>
       </div>
 
-      <!-- Card 2: Spatial Audio Spike Lab -->
+      <!-- 2. Harpreet's 2D World Canvas -->
       <div class="card">
         <div>
-          <h2>🎛️ Spatial Audio DSP Lab (Tasks A4, A8)</h2>
-          <p>Interactive laboratory testing the Web Audio API graph: real-time distance gain curves (Linear, Inverse, Exponential), smooth 50ms ramping, relative-X stereo panning, and real-time frequency spectrum analysis.</p>
+          <div class="card-meta">
+            <span class="card-tag">Branch: Harpreet---frontend</span>
+            <span style="color:#10b981; font-size:0.75rem; font-weight:700;">Tasks H1-H10</span>
+          </div>
+          <h2>🎨 2D Virtual World (React Canvas)</h2>
+          <p>Harpreet's interactive 800x500 office map featuring the Main Hall, Lounge, and Meeting Room zones, 5 furniture desks, collision blocking, WASD controls, and teammate speaking indicator pulse.</p>
         </div>
-        <a class="btn" href="/client/audio/index.html" target="_blank">Open Audio Spike Lab ➔</a>
+        <a class="btn" style="background:#10b981;" href="/client/world/standalone.html" target="_blank">Launch 2D Virtual World ➔</a>
       </div>
 
-      <!-- Card 3: Geospatial Engine Explorer -->
+      <!-- 3. Milind & Ameya's Geospatial Engine -->
       <div class="card">
         <div>
-          <h2>🌍 Geospatial Engine & Clusters (Tasks M1-M9)</h2>
-          <p>Interactive visualization of the transferred MongoDB geospatial engine: 2D planar indexing ({ pos: '2d', roomId: 1 }), $near distance sorting, BFS conversation clustering, and write batcher IOPS reduction.</p>
+          <div class="card-meta">
+            <span class="card-tag">Branch: Milind &rarr; Ameya</span>
+            <span style="color:#a855f7; font-size:0.75rem; font-weight:700;">Tasks M1-M9</span>
+          </div>
+          <h2>🌍 Geospatial Engine & Clusters</h2>
+          <p>Interactive visualization of the transferred MongoDB geospatial engine: 2D planar indexing ({ pos: '2d', roomId: 1 }), $near distance queries (&lt;0.1ms), BFS conversation clustering, and write batcher IOPS reduction.</p>
         </div>
-        <a class="btn" href="/server/geo/index.html" target="_blank">Explore Geospatial Engine ➔</a>
+        <a class="btn" style="background:#a855f7; color:#fff;" href="/server/geo/index.html" target="_blank">Explore Geospatial Engine ➔</a>
       </div>
 
-      <!-- Card 4: Updated Work Task Sheet -->
+      <!-- 4. Abhishek's Backend API -->
       <div class="card">
         <div>
-          <h2>📄 Official Task Sheet & Paperwork</h2>
+          <div class="card-meta">
+            <span class="card-tag">Branch: Abhishek-backend</span>
+            <span style="color:#f59e0b; font-size:0.75rem; font-weight:700;">Tasks S1-S3</span>
+          </div>
+          <h2>⚡ Backend Signaling & Location API</h2>
+          <p>Live REST endpoints for user positioning and status check matching Abhishek's Express controller: /api/backend status, /api/users/locations data store, and real-time JSON responses.</p>
+        </div>
+        <div style="display:flex; gap:0.5rem;">
+          <a class="btn" style="background:#f59e0b; flex:1;" href="/api/backend" target="_blank">Status API ➔</a>
+          <a class="btn btn-secondary" style="flex:1;" href="/api/users/locations" target="_blank">Locations API ➔</a>
+        </div>
+      </div>
+
+      <!-- 5. Spatial Audio DSP Lab -->
+      <div class="card">
+        <div>
+          <div class="card-meta">
+            <span class="card-tag">Branch: Ameya's-branch</span>
+            <span style="color:#38bdf8; font-size:0.75rem; font-weight:700;">Tasks A4 & A8</span>
+          </div>
+          <h2>🎛️ Spatial Audio DSP Lab</h2>
+          <p>Interactive laboratory testing the Web Audio API graph: real-time distance gain curves (Linear, Inverse, Exponential), smooth 50ms ramping, relative-X stereo panning, and frequency spectrum visualizer.</p>
+        </div>
+        <a class="btn btn-secondary" href="/client/audio/index.html" target="_blank">Open DSP Lab ➔</a>
+      </div>
+
+      <!-- 6. Official Task Sheet & Paperwork -->
+      <div class="card">
+        <div>
+          <div class="card-meta">
+            <span class="card-tag">Project Documentation</span>
+            <span style="color:#94a3b8; font-size:0.75rem; font-weight:700;">Infotact Report</span>
+          </div>
+          <h2>📄 Official Task Sheet & Viva Prep</h2>
           <p>Official task sheet tracking all 39 tasks across Ameya, Abhishek, Harpreet, and transferred database tasks (M1–M9) with visual progress bars and viva defense guides.</p>
         </div>
         <a class="btn btn-secondary" href="/docs/WORK_TASK_SHEET_UPDATED.html" target="_blank">View Task Sheet ➔</a>
@@ -231,7 +308,7 @@ function renderLandingPage(port) {
     <div class="test-runner-card">
       <div class="test-runner-header">
         <div>
-          <h2 style="font-size:1.15rem; color:#f8fafc;">🧪 Automated Test Suite Harness</h2>
+          <h2 style="font-size:1.15rem; color:#f8fafc;">🧪 Automated Test Suite Harness (All Modules)</h2>
           <p style="color:#94a3b8; font-size:0.8rem;">Click to execute all 26 test suites directly on localhost.</p>
         </div>
         <button id="btnRunTests" class="btn" style="padding:0.5rem 1rem; font-size:0.85rem; cursor:pointer;">▶ Run 26 Test Suites</button>
@@ -271,7 +348,7 @@ function renderLandingPage(port) {
 
 function startServer(port) {
   const server = http.createServer((req, res) => {
-    const parsedUrl = url.parse(req.url);
+    const parsedUrl = url.parse(req.url, true);
     let pathname = decodeURIComponent(parsedUrl.pathname);
 
     // Root route -> Portal
@@ -280,7 +357,58 @@ function startServer(port) {
       return res.end(renderLandingPage(port));
     }
 
-    // API route: Run automated test suite
+    // --- Abhishek's Backend API Routes ---
+    if (pathname === '/api/backend' || pathname === '/api') {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      return res.end(JSON.stringify({
+        message: "ProxiSpeak Backend is running successfully!",
+        branch: "Abhishek-backend",
+        timestamp: new Date().toISOString()
+      }));
+    }
+
+    if (pathname === '/api/users/locations' && req.method === 'GET') {
+      const locations = Object.values(userLocations);
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      return res.end(JSON.stringify({
+        success: true,
+        count: locations.length,
+        data: locations
+      }));
+    }
+
+    if (pathname === '/api/users/location' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => {
+        try {
+          const data = JSON.parse(body || '{}');
+          const userId = data.userId || 'user_' + Date.now();
+          const lat = data.latitude !== undefined ? Number(data.latitude) : (data.y || 200);
+          const lng = data.longitude !== undefined ? Number(data.longitude) : (data.x || 200);
+          userLocations[userId] = {
+            userId,
+            latitude: lat,
+            longitude: lng,
+            x: data.x || lng,
+            y: data.y || lat,
+            updatedAt: new Date().toISOString()
+          };
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          return res.end(JSON.stringify({
+            success: true,
+            message: "User location updated successfully",
+            data: userLocations[userId]
+          }));
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+          return res.end(JSON.stringify({ success: false, message: e.message }));
+        }
+      });
+      return;
+    }
+
+    // --- Automated Testing API ---
     if (pathname === '/api/run-tests') {
       exec('node scripts/run_tests.js', { cwd: ROOT_DIR }, (err, stdout, stderr) => {
         const output = (stdout || '') + (stderr || '');
@@ -293,7 +421,7 @@ function startServer(port) {
       return;
     }
 
-    // API route: Check branch progress
+    // --- Branch Progress API ---
     if (pathname === '/api/progress') {
       exec('node scripts/check_progress.js', { cwd: ROOT_DIR }, (err, stdout, stderr) => {
         const output = (stdout || '') + (stderr || '');
@@ -339,13 +467,15 @@ function startServer(port) {
 
   server.listen(port, () => {
     console.log(`==================================================================`);
-    console.log(`  PROXISPEAK LOCALHOST SERVER ACTIVE`);
+    console.log(`  PROXISPEAK UNIFIED MULTI-BRANCH LOCALHOST SERVER ACTIVE`);
     console.log(`==================================================================`);
-    console.log(`  Portal URL:       http://localhost:${port}/`);
-    console.log(`  Audio Mesh:       http://localhost:${port}/client/audio/mesh.html`);
-    console.log(`  Audio Spike Lab:  http://localhost:${port}/client/audio/index.html`);
-    console.log(`  Geospatial Demo:  http://localhost:${port}/server/geo/index.html`);
-    console.log(`  Work Task Sheet:  http://localhost:${port}/docs/WORK_TASK_SHEET_UPDATED.html`);
+    console.log(`  Portal Hub:        http://localhost:${port}/`);
+    console.log(`  Harpreet World:    http://localhost:${port}/client/world/standalone.html`);
+    console.log(`  Ameya Audio Mesh:  http://localhost:${port}/client/audio/mesh.html`);
+    console.log(`  Milind Geospatial: http://localhost:${port}/server/geo/index.html`);
+    console.log(`  Abhishek API:      http://localhost:${port}/api/backend`);
+    console.log(`  Audio Spike Lab:   http://localhost:${port}/client/audio/index.html`);
+    console.log(`  Work Task Sheet:   http://localhost:${port}/docs/WORK_TASK_SHEET_UPDATED.html`);
     console.log(`==================================================================`);
   });
 

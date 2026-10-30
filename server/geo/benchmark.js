@@ -30,6 +30,12 @@ async function runGeospatialBenchmark(options = {}) {
       await repo.upsertPosition(`user_${i}`, roomId, [x, y]);
     }
 
+    // Warm up V8 JIT compiler to ensure steady-state execution
+    for (let w = 0; w < 5; w++) {
+      await repo.nearby(roomId, [500, 500], earshotRadius, 5, 'warmup');
+      await repo.withinCircle(roomId, [500, 500], earshotRadius);
+    }
+
     // Perform concurrent spatial queries (nearby and withinCircle)
     const totalQueries = count * queriesPerUser;
     for (let q = 0; q < totalQueries; q++) {
