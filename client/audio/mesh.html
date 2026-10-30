@@ -188,7 +188,8 @@
           <div class="legend-item"><span class="legend-dot" style="background:#10b981;"></span> In Earshot (Audio On)</div>
           <div class="legend-item"><span class="legend-dot" style="background:#64748b;"></span> Out of Range (Audio Cut)</div>
           <div class="legend-item"><span class="legend-dot" style="border: 2px solid #22c55e;"></span> Speaking Pulse</div>
-          <div class="legend-item"><span class="legend-dot" style="background:#78350f;"></span> Furniture Desk</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#78350f;"></span> Desk (-6dB)</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#475569;"></span> Wall (-14dB)</div>
           <div class="legend-item"><span class="legend-dot" style="border: 1px solid #3b82f6;"></span> 100px Enter</div>
           <div class="legend-item"><span class="legend-dot" style="border: 1px dashed #ef4444;"></span> 120px Cutoff</div>
         </div>
@@ -219,8 +220,20 @@
             <button id="btnStartAudio" class="btn-success">Start Mic / Test Tone</button>
             <button id="btnMute" class="btn-secondary" disabled>Mute Mic</button>
           </div>
-          <p class="instructions">
-            <strong>Two-Browser Verification:</strong> Open this page in a second browser window (e.g. set ID to <code>bob</code>). Use WASD keys to move your avatar. When distance &le; 100px, WebRTC audio streams instantly. Walking away past 120px cuts sound completely!
+          <div class="telemetry-row" style="margin-bottom: 0.4rem;">
+            <span>Attenuation Rolloff:</span>
+            <select id="selRolloffModel" style="background:#1e293b; color:#38bdf8; border:1px solid #334155; padding:0.2rem 0.4rem; border-radius:4px; font-size:0.75rem;">
+              <option value="linear">Linear (1 - d/R)</option>
+              <option value="inverse">Inverse (minD / d)</option>
+              <option value="exponential">Exponential (exp -d/R)</option>
+            </select>
+          </div>
+          <div class="telemetry-row">
+            <span>Ramp Smoothing:</span>
+            <span class="telemetry-val" style="color:#10b981;">50ms Click-Prevention</span>
+          </div>
+          <p class="instructions" style="margin-top:0.5rem;">
+            <strong>Two-Browser Verification:</strong> Open in a second window (e.g. ID <code>bob</code>). When distance &le; 100px, WebRTC streams audio. Walking away past 120px cuts sound completely!
           </p>
         </div>
 
@@ -235,12 +248,20 @@
             <span class="telemetry-val" id="lblPeersInRange">0</span>
           </div>
           <div class="telemetry-row">
+            <span>Connection Capper (N=4):</span>
+            <span class="telemetry-val" id="lblCapperSlots" style="color:#38bdf8;">0 / 4 Active (15px Hysteresis)</span>
+          </div>
+          <div class="telemetry-row">
             <span>Closest Peer Distance:</span>
             <span class="telemetry-val" id="lblClosestDist">&infin;</span>
           </div>
           <div class="telemetry-row">
             <span>Audio Volume / Gain:</span>
             <span class="telemetry-val" id="lblAudioGain">0.00 (Muted)</span>
+          </div>
+          <div class="telemetry-row">
+            <span>Obstacle Attenuation:</span>
+            <span class="telemetry-val" id="lblLineOfSight">Clear (100% Gain, 20kHz)</span>
           </div>
           <div class="telemetry-row">
             <span>WebRTC Glare Rule:</span>
@@ -250,17 +271,18 @@
             <span>Spatial Audit Latency:</span>
             <span class="telemetry-val" style="color:#38bdf8;" id="lblSpatialLatency">&lt;4.0 ms (&lt;20ms target)</span>
           </div>
-          <div class="telemetry-row">
-            <span>Line-of-Sight Audio:</span>
-            <span class="telemetry-val" id="lblLineOfSight">Clear (100%)</span>
-          </div>
         </div>
 
         <div class="card-section">
-          <h3>4. Quick Movement Shortcuts</h3>
-          <div class="btn-group">
-            <button id="btnMoveNear" class="btn-secondary" style="font-size:0.75rem;">Move In Earshot (&le;60px)</button>
+          <h3>4. Quick Movement & Audio Traps</h3>
+          <div class="btn-group" style="margin-bottom:0.5rem;">
+            <button id="btnMoveNear" class="btn-secondary" style="font-size:0.75rem;">Move Near (&le;60px)</button>
+            <button id="btnMoveDesk" class="btn-secondary" style="font-size:0.75rem;">Behind Desk (-6dB)</button>
+            <button id="btnMoveWall" class="btn-secondary" style="font-size:0.75rem;">Behind Wall (-14dB)</button>
             <button id="btnMoveAway" class="btn-secondary" style="font-size:0.75rem;">Walk Away (&gt;130px)</button>
+          </div>
+          <div class="btn-group">
+            <button id="btnSpawnPeers" class="btn-primary" style="font-size:0.75rem; width:100%;">Spawn 5 Peers (Test N=4 Capper)</button>
           </div>
         </div>
       </div>
@@ -269,6 +291,9 @@
 
   <!-- Audio Core & Integration Scripts -->
   <script src="src/AudioMixer.js"></script>
+  <script src="src/DistanceGainNode.js"></script>
+  <script src="src/ObstacleAttenuation.js"></script>
+  <script src="src/ConnectionCapper.js"></script>
   <script src="src/SpatialAudioMixer.js"></script>
   <script src="src/WebRTCManager.js"></script>
   <script src="src/ProximityIntegration.js"></script>
@@ -373,29 +398,59 @@
         lblSpatialLatency.textContent = `${diag.spatialAuditLatencyMs || 3.8} ms (<20ms PASS)`;
       }
 
+      // Connection Capper evaluation (Task A9)
+      const capper = integration.connectionCapper;
+      const lblCapperSlots = document.getElementById('lblCapperSlots');
+      if (lblCapperSlots && capper) {
+        lblCapperSlots.textContent = `${capper.activeSet.size} / ${capper.maxConnections} Active (15px Hysteresis)`;
+      }
+
+      // Line of Sight & Obstacle Attenuation evaluation (Task A10)
       let anyOccluded = false;
+      let worstLossDb = 0;
+      let lowestCutoffHz = 20000;
+      let occludingObstacle = null;
+
       for (const [id, peer] of integration.peers.entries()) {
-        if (peer.inRange && peer.isOccluded) {
+        if (peer.inRange && peer.occlusionInfo && peer.occlusionInfo.occluded) {
           anyOccluded = true;
-          break;
+          if (peer.occlusionInfo.totalLossDb > worstLossDb) {
+            worstLossDb = peer.occlusionInfo.totalLossDb;
+            lowestCutoffHz = peer.occlusionInfo.cutoffFrequencyHz;
+            occludingObstacle = peer.occlusionInfo.obstacle;
+          }
         }
       }
+
       if (lblLineOfSight) {
         if (inRangeCount === 0) {
           lblLineOfSight.textContent = 'None in range';
           lblLineOfSight.className = 'telemetry-val';
         } else if (anyOccluded) {
-          lblLineOfSight.textContent = 'Occluded by desk (-30% gain)';
+          const typeName = occludingObstacle && occludingObstacle.type === 'wall' ? 'Conference Wall' : 'Office Desk';
+          lblLineOfSight.textContent = `${typeName} (-${worstLossDb.toFixed(1)} dB, ${lowestCutoffHz} Hz)`;
           lblLineOfSight.className = 'telemetry-val status-muted';
         } else {
-          lblLineOfSight.textContent = 'Clear Direct Ray (100%)';
+          lblLineOfSight.textContent = 'Clear Direct Path (0 dB Loss, 20kHz)';
           lblLineOfSight.className = 'telemetry-val status-active';
         }
       }
 
+      // Distance Gain evaluation with Rolloff Selection (Task A8)
+      const rolloffModel = document.getElementById('selRolloffModel') ? document.getElementById('selRolloffModel').value : 'linear';
       if (inRangeCount > 0 && minDistance <= 120) {
-        const gain = Math.max(0, 1 - (minDistance / 100));
-        lblAudioGain.textContent = `${gain.toFixed(2)} (Active)`;
+        let gain = 1.0;
+        if (rolloffModel === 'linear') {
+          gain = Math.max(0, 1 - (minDistance / 100));
+        } else if (rolloffModel === 'inverse') {
+          gain = Math.min(1.0, 30 / Math.max(1, minDistance));
+        } else if (rolloffModel === 'exponential') {
+          gain = Math.exp(-1.5 * (minDistance / 100));
+        }
+        if (anyOccluded) {
+          gain *= Math.pow(10, -worstLossDb / 20);
+        }
+        lblAudioGain.textContent = `${gain.toFixed(2)} (${rolloffModel.toUpperCase()})`;
         lblAudioGain.className = 'telemetry-val status-active';
       } else {
         lblAudioGain.textContent = '0.00 (Cut Off / Muted)';
@@ -455,6 +510,50 @@
       if (!integration) return;
       integration.updateLocalPosition(50, 50);
     });
+
+    const btnMoveDesk = document.getElementById('btnMoveDesk');
+    if (btnMoveDesk) {
+      btnMoveDesk.addEventListener('click', () => {
+        if (!integration) return;
+        // Step to right side of Desk 2 (x=240, y=85)
+        integration.updateLocalPosition(240, 85);
+      });
+    }
+
+    const btnMoveWall = document.getElementById('btnMoveWall');
+    if (btnMoveWall) {
+      btnMoveWall.addEventListener('click', () => {
+        if (!integration) return;
+        // Step behind dividing wall (x=360, y=340)
+        integration.updateLocalPosition(360, 340);
+      });
+    }
+
+    const btnSpawnPeers = document.getElementById('btnSpawnPeers');
+    if (btnSpawnPeers) {
+      btnSpawnPeers.addEventListener('click', () => {
+        if (!integration) return;
+        // Spawn 5 simulated peers to test N=4 Connection Capper and 15px swap hysteresis
+        const simulated = [
+          { id: 'charlie', x: 230, y: 190 }, // dist ~ 30px
+          { id: 'david',   x: 245, y: 190 }, // dist ~ 45px
+          { id: 'elena',   x: 260, y: 190 }, // dist ~ 60px
+          { id: 'frank',   x: 280, y: 190 }, // dist ~ 80px
+          { id: 'grace',   x: 295, y: 190 }  // dist ~ 95px (5th peer: capped by N=4 limit!)
+        ];
+        simulated.forEach(p => {
+          integration.handleRemoteMove(p.id, p.x, p.y);
+        });
+        updateTelemetry();
+      });
+    }
+
+    const selRolloffModel = document.getElementById('selRolloffModel');
+    if (selRolloffModel) {
+      selRolloffModel.addEventListener('change', () => {
+        updateTelemetry();
+      });
+    }
 
     // Auto-init on load
     initClient(initialUser);

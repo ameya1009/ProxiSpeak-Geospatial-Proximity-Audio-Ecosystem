@@ -24,13 +24,26 @@ const { WebRTCManager } = (typeof require !== 'undefined')
   ? require('./WebRTCManager')
   : (typeof window !== 'undefined' ? window : {});
 
-// Harpreet's Virtual World Office Layout (5 desks, 3 room zones)
+const { ObstacleAttenuation } = (typeof require !== 'undefined')
+  ? require('./ObstacleAttenuation')
+  : (typeof window !== 'undefined' ? window : {});
+
+const { ConnectionCapper } = (typeof require !== 'undefined')
+  ? require('./ConnectionCapper')
+  : (typeof window !== 'undefined' ? window : {});
+
+const { DistanceGainNode } = (typeof require !== 'undefined')
+  ? require('./DistanceGainNode')
+  : (typeof window !== 'undefined' ? window : {});
+
+// Harpreet's Virtual World Office Layout (5 desks, 1 dividing wall, 3 room zones)
 const DEFAULT_OBSTACLES = [
-  { id: 'desk-1', x: 100, y: 100, width: 120, height: 60 },
-  { id: 'desk-2', x: 300, y: 100, width: 120, height: 60 },
-  { id: 'desk-3', x: 550, y: 100, width: 120, height: 60 },
-  { id: 'desk-4', x: 100, y: 320, width: 120, height: 60 },
-  { id: 'desk-5', x: 550, y: 320, width: 120, height: 60 }
+  { id: 'desk-1', type: 'desk', x: 100, y: 100, width: 120, height: 60, acousticAttenuationDb: 6.0 },
+  { id: 'desk-2', type: 'desk', x: 300, y: 100, width: 120, height: 60, acousticAttenuationDb: 6.0 },
+  { id: 'desk-3', type: 'desk', x: 550, y: 100, width: 120, height: 60, acousticAttenuationDb: 6.0 },
+  { id: 'desk-4', type: 'desk', x: 100, y: 320, width: 120, height: 60, acousticAttenuationDb: 6.0 },
+  { id: 'desk-5', type: 'desk', x: 550, y: 320, width: 120, height: 60, acousticAttenuationDb: 6.0 },
+  { id: 'wall-1', type: 'wall', x: 380, y: 260, width: 20, height: 220, acousticAttenuationDb: 14.0 }
 ];
 
 const DEFAULT_ROOMS = [
@@ -108,6 +121,20 @@ class ProximityIntegration {
       mixer: this.mixer,
       sendSignal: (to, type, data) => this._sendSignal(to, type, data)
     });
+
+    // Instantiate ObstacleAttenuation & ConnectionCapper
+    this.obstacleAttenuation = (typeof ObstacleAttenuation === 'function')
+      ? new ObstacleAttenuation({ baseDeskLossDb: 6.0, baseWallLossDb: 14.0 })
+      : null;
+
+    this.connectionCapper = (typeof ConnectionCapper === 'function')
+      ? new ConnectionCapper({
+          maxConnections: config.maxConnections || 4,
+          enterRadius: this.earshotRadius,
+          leaveRadius: this.leaveRadius,
+          swapHysteresis: 15
+        })
+      : null;
 
     // Peering state: peerId -> { id, x, y, inRange, lastDistance }
     this.peers = new Map();
@@ -473,15 +500,40 @@ class ProximityIntegration {
    * Used for acoustic obstacle sound attenuation audit.
    * @param {{x: number, y: number}} p1
    * @param {{x: number, y: number}} p2
-   * @returns {{occluded: boolean, obstacle: Object|null}}
+   * @returns {{occluded: boolean, obstacle: Object|null, totalLossDb: number, cutoffFrequencyHz: number, gainMultiplier: number}}
    */
   checkLineOfSight(p1, p2) {
+    if (this.obstacleAttenuation && typeof this.obstacleAttenuation.analyzeLineOfSight === 'function') {
+      const res = this.obstacleAttenuation.analyzeLineOfSight(p1, p2, this.obstacles);
+      return {
+        occluded: res.occluded,
+        obstacle: res.intersectedObstacles[0] || null,
+        intersectedObstacles: res.intersectedObstacles,
+        totalLossDb: res.totalLossDb,
+        gainMultiplier: res.gainMultiplier,
+        cutoffFrequencyHz: res.cutoffFrequencyHz
+      };
+    }
     for (const obs of this.obstacles) {
       if (lineIntersectsRect(p1, p2, obs)) {
-        return { occluded: true, obstacle: obs };
+        return {
+          occluded: true,
+          obstacle: obs,
+          intersectedObstacles: [obs],
+          totalLossDb: obs.type === 'wall' ? 14 : 6,
+          gainMultiplier: obs.type === 'wall' ? 0.2 : 0.5,
+          cutoffFrequencyHz: 900
+        };
       }
     }
-    return { occluded: false, obstacle: null };
+    return {
+      occluded: false,
+      obstacle: null,
+      intersectedObstacles: [],
+      totalLossDb: 0,
+      gainMultiplier: 1.0,
+      cutoffFrequencyHz: 20000
+    };
   }
 
   /**
@@ -637,18 +689,31 @@ class ProximityIntegration {
         ctx.fillText(room.name, room.x + 8, room.y + 16);
       }
 
-      // Draw furniture obstacles (desks)
+      // Draw furniture obstacles (desks & dividing walls)
       for (const obs of scaledObstacles) {
-        ctx.fillStyle = '#78350f'; // Dark amber desk
-        ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
-        ctx.strokeStyle = '#92400e';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(obs.x, obs.y, obs.width, obs.height);
+        if (obs.type === 'wall') {
+          ctx.fillStyle = '#475569'; // Drywall / concrete slate
+          ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+          ctx.strokeStyle = '#64748b';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(obs.x, obs.y, obs.width, obs.height);
 
-        ctx.fillStyle = '#fde68a';
-        ctx.font = '9px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('DESK', obs.x + obs.width / 2, obs.y + obs.height / 2 + 3);
+          ctx.fillStyle = '#cbd5e1';
+          ctx.font = 'bold 9px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText('WALL (-14dB)', obs.x + obs.width / 2, obs.y + obs.height / 2 + 3);
+        } else {
+          ctx.fillStyle = '#78350f'; // Dark amber desk
+          ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+          ctx.strokeStyle = '#92400e';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(obs.x, obs.y, obs.width, obs.height);
+
+          ctx.fillStyle = '#fde68a';
+          ctx.font = '9px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText('DESK (-6dB)', obs.x + obs.width / 2, obs.y + obs.height / 2 + 3);
+        }
       }
 
       // Draw 120px Hysteresis Leave Boundary (Dotted Circle)
@@ -677,6 +742,7 @@ class ProximityIntegration {
         // Check line-of-sight obstruction for audio ray
         const los = this.checkLineOfSight(this.localPos, { x: peer.x, y: peer.y });
         peer.isOccluded = los.occluded;
+        peer.occlusionInfo = los;
 
         if (isInRange) {
           ctx.beginPath();
@@ -719,10 +785,12 @@ class ProximityIntegration {
         ctx.fillText(peer.id, peer.x, peer.y - avatarRadius - 8);
 
         // Distance Badge + Obstacle Status
+        const lossText = peer.occlusionInfo && peer.occlusionInfo.totalLossDb ? `-${Math.round(peer.occlusionInfo.totalLossDb)}dB` : '-6dB';
+        const cutoffText = peer.occlusionInfo && peer.occlusionInfo.cutoffFrequencyHz ? `| ${peer.occlusionInfo.cutoffFrequencyHz}Hz` : '';
         const statusLabel = !isInRange
           ? '🔇 MUTED'
           : peer.isOccluded
-            ? '🔊 BLOCKED (-30%)'
+            ? `🔊 BLOCKED (${lossText} ${cutoffText})`
             : '🔊 ACTIVE';
         const distText = `${Math.round(peer.lastDistance)}px ${statusLabel}`;
         ctx.fillStyle = isInRange ? (peer.isOccluded ? '#f59e0b' : '#34d399') : '#94a3b8';
