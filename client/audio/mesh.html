@@ -228,6 +228,13 @@
               <option value="exponential">Exponential (exp -d/R)</option>
             </select>
           </div>
+          <div class="telemetry-row" style="margin-bottom: 0.4rem;">
+            <span>Spatial Panning:</span>
+            <select id="selPanningMode" style="background:#1e293b; color:#38bdf8; border:1px solid #334155; padding:0.2rem 0.4rem; border-radius:4px; font-size:0.75rem;">
+              <option value="stereo">Stereo (Relative X)</option>
+              <option value="hrtf-3d">3D HRTF (Binaural Space)</option>
+            </select>
+          </div>
           <div class="telemetry-row">
             <span>Ramp Smoothing:</span>
             <span class="telemetry-val" style="color:#10b981;">50ms Click-Prevention</span>
@@ -462,6 +469,16 @@
       const u = document.getElementById('txtUserId').value.trim();
       if (u) initClient(u);
     });
+
+    const selPanningMode = document.getElementById('selPanningMode');
+    if (selPanningMode) {
+      selPanningMode.addEventListener('change', (e) => {
+        if (integration && integration.mixer && typeof integration.mixer.setPanningMode === 'function') {
+          integration.mixer.setPanningMode(e.target.value);
+        }
+        updateTelemetry();
+      });
+    }
 
     btnStartAudio.addEventListener('click', async () => {
       if (!audioCtx) {

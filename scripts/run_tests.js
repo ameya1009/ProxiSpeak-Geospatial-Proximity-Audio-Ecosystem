@@ -994,6 +994,157 @@ function runObstacleAttenuationTest() {
   console.log('✔ Task A10: ObstacleAttenuation AABB ray-casting, dB transmission loss, biquad filter, and stereo pan: OK');
 }
 
+// --- Test 27: Task A10 - SpatialAudioMixer 3D HRTF Panning Mode & Dynamic Obstacle Occlusion Filter ---
+function runSpatialAudioMixer3DAndObstacleTest() {
+  const { SpatialAudioMixer } = require('../client/audio/src/SpatialAudioMixer');
+  const { ObstacleAttenuation } = require('../client/audio/src/ObstacleAttenuation');
+
+  const filterParamHistory = [];
+  const panner3DHistory = [];
+  const gainHistory = [];
+
+  const mockCtx3D = {
+    currentTime: 5.0,
+    destination: { name: 'destination' },
+    createBiquadFilter() {
+      const f = {
+        name: 'biquadFilter',
+        type: 'lowpass',
+        frequency: {
+          value: 20000,
+          setValueAtTime: (v) => { f.frequency.value = v; filterParamHistory.push({ method: 'set', val: v }); },
+          linearRampToValueAtTime: (v, t) => { f.frequency.value = v; filterParamHistory.push({ method: 'ramp', val: v, time: t }); }
+        },
+        Q: { setValueAtTime: () => {} },
+        connect: () => {},
+        disconnect: () => {}
+      };
+      return f;
+    },
+    createPanner() {
+      const p = {
+        name: 'panner3D',
+        panningModel: 'HRTF',
+        distanceModel: 'inverse',
+        positionX: { setValueAtTime: (v, t) => { p.posX = v; panner3DHistory.push({ axis: 'x', val: v, time: t }); } },
+        positionY: { setValueAtTime: (v, t) => { p.posY = v; panner3DHistory.push({ axis: 'y', val: v, time: t }); } },
+        positionZ: { setValueAtTime: (v, t) => { p.posZ = v; panner3DHistory.push({ axis: 'z', val: v, time: t }); } },
+        connect: () => {},
+        disconnect: () => {}
+      };
+      return p;
+    },
+    createGain() {
+      const g = {
+        name: 'gain',
+        gain: {
+          value: 1,
+          setValueAtTime: (v, t) => { g.gain.value = v; gainHistory.push({ method: 'set', val: v, time: t }); },
+          linearRampToValueAtTime: (v, t) => { g.gain.value = v; gainHistory.push({ method: 'ramp', val: v, time: t }); }
+        },
+        connect: () => {},
+        disconnect: () => {}
+      };
+      return g;
+    }
+  };
+
+  const obstacles = [
+    { id: 'desk-office', x: 100, y: 100, width: 80, height: 40, type: 'desk', acousticAttenuationDb: 6.0 },
+    { id: 'wall-conf', x: 250, y: 50, width: 20, height: 200, type: 'wall' }
+  ];
+
+  const mixer3D = new SpatialAudioMixer(mockCtx3D, {
+    earshotRadius: 100,
+    rampTime: 0.05,
+    panningMode: 'hrtf-3d',
+    obstacles: obstacles
+  });
+
+  const mockSource = { connect: () => {}, disconnect: () => {}, stop: () => {} };
+
+  // 1. Initial listener at (0, 0), peer at (50, 0) -> Clear line-of-sight
+  mixer3D.setListenerPosition(0, 0);
+  mixer3D.addPeer('peer-clear', mockSource, { x: 50, y: 0 });
+
+  const stateClear = mixer3D.getPeerState('peer-clear');
+  assert.strictEqual(stateClear.panningMode, 'hrtf-3d');
+  assert.strictEqual(stateClear.occluded, false, 'Clear line of sight');
+  assert.strictEqual(stateClear.cutoffFrequencyHz, 20000, 'Clear lowpass cutoff is 20kHz');
+  assert.strictEqual(stateClear.gain, 0.5, '50px distance = 0.5 base gain');
+
+  // 2. Add peer behind desk: listener at (50, 120), peer at (200, 120) -> intersects desk-office
+  mixer3D.setListenerPosition(50, 120);
+  mixer3D.addPeer('peer-desk', mockSource, { x: 200, y: 120 });
+
+  const stateDesk = mixer3D.getPeerState('peer-desk');
+  assert.strictEqual(stateDesk.occluded, true, 'Occluded by desk');
+  assert.strictEqual(stateDesk.totalLossDb, 6.0, '6.0 dB desk acoustic loss');
+  assert.ok(stateDesk.cutoffFrequencyHz <= 900, 'Acoustic biquad cutoff drops to occluded range <=900Hz');
+
+  // 3. Dynamic Obstacle Geometry Update via setObstacles()
+  mixer3D.setObstacles([]); // clear all obstacles
+  const stateUnblocked = mixer3D.getPeerState('peer-desk');
+  assert.strictEqual(stateUnblocked.occluded, false, 'Unblocked after obstacle removal');
+  assert.strictEqual(stateUnblocked.cutoffFrequencyHz, 20000);
+
+  // 4. Panning Mode switch to 'stereo' and back to 'hrtf-3d'
+  mixer3D.setPanningMode('stereo');
+  assert.strictEqual(mixer3D.getPeerState('peer-desk').panningMode, 'stereo');
+  mixer3D.setPanningMode('hrtf-3d');
+  assert.strictEqual(mixer3D.getPeerState('peer-desk').panningMode, 'hrtf-3d');
+
+  mixer3D.destroy();
+  console.log('✔ Task A10: SpatialAudioMixer 3D HRTF binaural panning, BiquadFilter occlusion & dynamic obstacle updates: OK');
+}
+
+// --- Test 28: Task M8 - RoomRepository Obstacle Exposure & Spatial Queries ---
+async function runRoomObstacleExposureTest() {
+  const { RoomRepository } = require('../server/geo/src/repository/roomRepo');
+  const repo = new RoomRepository();
+
+  // 1. Seeded default room verification
+  const room = await repo.getRoom('default-office');
+  assert.ok(room, 'Default room exists in repository');
+  assert.strictEqual(room.roomId, 'default-office');
+  assert.ok(Array.isArray(room.obstacles), 'Obstacles array is present');
+  assert.ok(room.obstacles.length >= 5, 'Contains default meeting tables and desks');
+
+  // 2. Obstacles direct exposure
+  const obstacles = await repo.getObstacles('default-office');
+  assert.strictEqual(obstacles.length, room.obstacles.length);
+  assert.strictEqual(obstacles[0].type, 'desk');
+  assert.ok(obstacles[0].acousticAttenuationDb > 0, 'Obstacle contains acousticAttenuationDb');
+
+  // 3. Region-bounded obstacle filtering
+  const subRegion = { minX: 80, maxX: 200, minY: 80, maxY: 180 };
+  const filtered = await repo.getObstaclesInRegion('default-office', subRegion);
+  assert.ok(filtered.length >= 1, 'Obstacles within bounded region returned');
+  assert.strictEqual(filtered[0].id, 'desk-1');
+
+  // 4. Custom room upsert with new acoustic properties
+  const customRoom = {
+    roomId: 'auditorium-a',
+    name: 'Main Auditorium',
+    size: { width: 2000, height: 1500 },
+    maxUsers: 100,
+    earshotRadius: 150,
+    hysteresisBuffer: 25,
+    obstacles: [
+      { id: 'podium-1', name: 'Speaker Stage', x: 500, y: 300, width: 200, height: 100, type: 'desk', acousticAttenuationDb: 4.0, occlusionFactor: 0.4 }
+    ]
+  };
+
+  await repo.upsertRoom(customRoom);
+  const fetched = await repo.getRoom('auditorium-a');
+  assert.strictEqual(fetched.name, 'Main Auditorium');
+  const auditoriumObs = await repo.getObstacles('auditorium-a');
+  assert.strictEqual(auditoriumObs.length, 1);
+  assert.strictEqual(auditoriumObs[0].id, 'podium-1');
+
+  console.log('✔ Task M8: RoomRepository obstacle exposure, spatial bounding box queries & persistence: OK');
+}
+
 async function runAll() {
   await runWebRTCLifecycleTest();
   await runProximityIntegrationTest();
@@ -1008,7 +1159,9 @@ async function runAll() {
   await runRoomRepoAndDocsTest();
   runConnectionCapperTest();
   runObstacleAttenuationTest();
-  console.log('\nAll 26 audio spike, SpatialAudioMixer, multi-peer, WebRTCManager, ProximityIntegration, DistanceGainNode, ConnectionCapper, ObstacleAttenuation, and Geospatial Engine assertions passed cleanly.');
+  runSpatialAudioMixer3DAndObstacleTest();
+  await runRoomObstacleExposureTest();
+  console.log('\nAll 28 audio spike, SpatialAudioMixer, 3D HRTF, WebRTCManager, ProximityIntegration, DistanceGainNode, ConnectionCapper, ObstacleAttenuation, and Geospatial Engine assertions passed cleanly.');
 }
 
 runAll().catch((err) => {

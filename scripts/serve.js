@@ -13,12 +13,15 @@ const fs = require('fs');
 const path = require('path');
 const url = require('url');
 const { exec } = require('child_process');
+const { RoomRepository } = require('../server/geo/src/repository/roomRepo');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
 const DEFAULT_PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 // In-memory user locations store (Abhishek's backend state)
 const userLocations = {};
+// Geospatial Room Repository (Milind's transferred Task M8)
+const roomRepo = new RoomRepository();
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -255,10 +258,13 @@ function renderLandingPage(port) {
             <span class="card-tag">Branch: Milind &rarr; Ameya</span>
             <span style="color:#a855f7; font-size:0.75rem; font-weight:700;">Tasks M1-M9</span>
           </div>
-          <h2>🌍 Geospatial Engine & Clusters</h2>
-          <p>Interactive visualization of the transferred MongoDB geospatial engine: 2D planar indexing ({ pos: '2d', roomId: 1 }), $near distance queries (&lt;0.1ms), BFS conversation clustering, and write batcher IOPS reduction.</p>
+          <h2>🌍 Geospatial Engine & Rooms</h2>
+          <p>Interactive visualization of the transferred MongoDB geospatial engine: 2D planar indexing, $near distance queries (&lt;0.1ms), BFS conversation clustering, write batcher, and Task M8 Room & Obstacle persistence API.</p>
         </div>
-        <a class="btn" style="background:#a855f7; color:#fff;" href="/server/geo/index.html" target="_blank">Explore Geospatial Engine ➔</a>
+        <div style="display:flex; gap:0.5rem;">
+          <a class="btn" style="background:#a855f7; color:#fff; flex:1;" href="/server/geo/index.html" target="_blank">Engine Visualizer ➔</a>
+          <a class="btn btn-secondary" style="flex:1;" href="/api/rooms/default-office/obstacles" target="_blank">Obstacles API ➔</a>
+        </div>
       </div>
 
       <!-- 4. Abhishek's Backend API -->
@@ -309,11 +315,11 @@ function renderLandingPage(port) {
       <div class="test-runner-header">
         <div>
           <h2 style="font-size:1.15rem; color:#f8fafc;">🧪 Automated Test Suite Harness (All Modules)</h2>
-          <p style="color:#94a3b8; font-size:0.8rem;">Click to execute all 26 test suites directly on localhost.</p>
+          <p style="color:#94a3b8; font-size:0.8rem;">Click to execute all 28 test suites directly on localhost.</p>
         </div>
-        <button id="btnRunTests" class="btn" style="padding:0.5rem 1rem; font-size:0.85rem; cursor:pointer;">▶ Run 26 Test Suites</button>
+        <button id="btnRunTests" class="btn" style="padding:0.5rem 1rem; font-size:0.85rem; cursor:pointer;">▶ Run 28 Test Suites</button>
       </div>
-      <div id="testOutput" class="test-output">Click 'Run 26 Test Suites' to verify all audio spike, WebRTC, proximity, connection capper, obstacle attenuation, and geospatial assertions...</div>
+      <div id="testOutput" class="test-output">Click 'Run 28 Test Suites' to verify all audio spike, WebRTC, proximity, connection capper, obstacle attenuation, and geospatial assertions...</div>
     </div>
 
     <footer>
@@ -403,6 +409,65 @@ function startServer(port) {
         } catch (e) {
           res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
           return res.end(JSON.stringify({ success: false, message: e.message }));
+        }
+      });
+      return;
+    }
+
+    // --- Milind's Geospatial Engine & Room Persistence (Task M8) ---
+    if (pathname === '/api/rooms' && req.method === 'GET') {
+      roomRepo.listRooms().then(rooms => {
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, count: rooms.length, data: rooms }));
+      }).catch(err => {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      });
+      return;
+    }
+
+    const roomObstacleMatch = pathname.match(/^\/api\/rooms\/([^/]+)\/obstacles$/);
+    if (roomObstacleMatch && req.method === 'GET') {
+      const roomId = roomObstacleMatch[1];
+      roomRepo.getObstacles(roomId).then(obstacles => {
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, roomId, count: obstacles.length, data: obstacles }));
+      }).catch(err => {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      });
+      return;
+    }
+
+    const singleRoomMatch = pathname.match(/^\/api\/rooms\/([^/]+)$/);
+    if (singleRoomMatch && req.method === 'GET') {
+      const roomId = singleRoomMatch[1];
+      roomRepo.getRoom(roomId).then(room => {
+        if (!room) {
+          res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+          return res.end(JSON.stringify({ success: false, message: `Room '${roomId}' not found` }));
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, data: room }));
+      }).catch(err => {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      });
+      return;
+    }
+
+    if (pathname === '/api/rooms' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body || '{}');
+          const room = await roomRepo.upsertRoom(data);
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          return res.end(JSON.stringify({ success: true, data: room }));
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+          return res.end(JSON.stringify({ success: false, error: e.message }));
         }
       });
       return;
