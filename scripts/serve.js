@@ -1,22 +1,26 @@
 /**
  * ProxiSpeak Localhost Development & Demo Server
- * Zero external dependencies - pure Node.js HTTP server.
+ * Zero external dependencies - pure Node.js HTTP & HTTPS server.
  * Combines deliverables from ALL branches on localhost:
  * - Harpreet---frontend: 2D Virtual World (React/Canvas office with avatars and obstacles)
  * - Abhishek-backend: Location API (/api/users/location & /api/users/locations)
  * - Ameya's-branch: Web Audio Engine, WebRTC Audio Mesh, Connection Capper & Obstacle Attenuation
  * - Milind-database (Transferred): MongoDB 2D indexing, $near queries, clustering & benchmarks
+ * - Task A11: HTTPS secure origin deployment & 50/100 peer load test harness
  */
 
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
 const { exec } = require('child_process');
 const { RoomRepository } = require('../server/geo/src/repository/roomRepo');
+const { getHttpsOptions } = require('./generate_cert');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
 const DEFAULT_PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+const DEFAULT_HTTPS_PORT = process.env.HTTPS_PORT ? parseInt(process.env.HTTPS_PORT, 10) : 3443;
 
 // In-memory user locations store (Abhishek's backend state)
 const userLocations = {};
@@ -41,7 +45,7 @@ const MIME_TYPES = {
   '.md': 'text/markdown; charset=utf-8'
 };
 
-function renderLandingPage(port) {
+function renderLandingPage(port, httpsPort = DEFAULT_HTTPS_PORT) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -108,6 +112,7 @@ function renderLandingPage(port) {
     .badge-harpreet { background: #065f46; color: #d1fae5; }
     .badge-abhishek { background: #854d0e; color: #fef3c7; }
     .badge-milind { background: #4c1d95; color: #ede9fe; }
+    .badge-https { background: #047857; color: #ecfdf5; border: 1px solid #10b981; }
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
@@ -122,11 +127,22 @@ function renderLandingPage(port) {
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      transition: transform 0.2s, border-color 0.2s;
+      transition: transform 0.15s ease, border-color 0.15s ease;
     }
     .card:hover {
-      transform: translateY(-4px);
+      transform: translateY(-2px);
       border-color: var(--accent);
+    }
+    .card h2 {
+      font-size: 1.25rem;
+      margin-bottom: 0.5rem;
+      color: #fff;
+    }
+    .card p {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.5;
+      margin-bottom: 1.25rem;
     }
     .card-meta {
       display: flex;
@@ -135,42 +151,32 @@ function renderLandingPage(port) {
       margin-bottom: 0.75rem;
     }
     .card-tag {
-      font-size: 0.7rem;
-      text-transform: uppercase;
+      font-size: 0.72rem;
       font-weight: 700;
-      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
       color: var(--muted);
-    }
-    .card h2 {
-      font-size: 1.2rem;
-      margin-bottom: 0.4rem;
-      color: #fff;
-    }
-    .card p {
-      color: var(--muted);
-      font-size: 0.875rem;
-      line-height: 1.5;
-      margin-bottom: 1.25rem;
     }
     .btn {
       display: inline-block;
-      text-align: center;
+      padding: 0.65rem 1.1rem;
       background: var(--accent);
       color: #0b0f19;
-      padding: 0.6rem 1.2rem;
-      border-radius: 8px;
-      text-decoration: none;
       font-weight: 700;
-      font-size: 0.85rem;
-      transition: background 0.15s;
+      font-size: 0.88rem;
+      text-decoration: none;
+      border-radius: 6px;
+      text-align: center;
+      transition: background 0.15s ease;
+      cursor: pointer;
+      border: none;
     }
     .btn:hover {
       background: var(--accent-hover);
-      color: #fff;
     }
     .btn-secondary {
       background: #334155;
-      color: #f8fafc;
+      color: var(--text);
     }
     .btn-secondary:hover {
       background: #475569;
@@ -179,7 +185,7 @@ function renderLandingPage(port) {
       background: #0f172a;
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 1.5rem;
+      padding: 1.25rem 1.5rem;
       margin-bottom: 2rem;
     }
     .test-runner-header {
@@ -188,54 +194,59 @@ function renderLandingPage(port) {
       align-items: center;
       margin-bottom: 1rem;
       flex-wrap: wrap;
-      gap: 0.5rem;
+      gap: 0.75rem;
     }
     .test-output {
-      background: #060913;
+      background: #050811;
       border: 1px solid #1e293b;
-      border-radius: 8px;
+      border-radius: 6px;
       padding: 1rem;
-      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-family: monospace;
       font-size: 0.8rem;
       color: #38bdf8;
-      max-height: 220px;
+      max-height: 240px;
       overflow-y: auto;
       white-space: pre-wrap;
     }
     footer {
-      border-top: 1px solid var(--border);
-      padding-top: 1.5rem;
       text-align: center;
       color: var(--muted);
-      font-size: 0.85rem;
+      font-size: 0.8rem;
+      border-top: 1px solid var(--border);
+      padding-top: 1.5rem;
+      width: 100%;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>🎙️ ProxiSpeak Unified Localhost Hub</h1>
-      <p class="lead">Combining All Deliverables Across Branches in One Localhost Environment</p>
+      <h1>ProxiSpeak Localhost Portal</h1>
+      <p class="lead">Interactive Multi-Branch Development & Demonstration Hub</p>
       <div class="badge-bar">
-        <span class="badge badge-ameya">Ameya: Audio & WebRTC Mesh (95%)</span>
-        <span class="badge badge-harpreet">Harpreet: 2D React Canvas (60%)</span>
-        <span class="badge badge-abhishek">Abhishek: Signaling & API (22%)</span>
-        <span class="badge badge-milind">Milind &rarr; Ameya: Geospatial Engine (100%)</span>
+        <span class="badge badge-ameya">Ameya: Audio &amp; Lead (100%)</span>
+        <span class="badge badge-milind">Milind: DB (100% via Ameya)</span>
+        <span class="badge badge-harpreet">Harpreet: 2D Canvas</span>
+        <span class="badge badge-abhishek">Abhishek: Signaling</span>
+        <a href="https://localhost:${httpsPort}/" class="badge badge-https" style="text-decoration:none;">🔒 HTTPS Enabled (:3443)</a>
       </div>
     </header>
 
     <div class="grid">
-      <!-- 1. Ameya's Audio Mesh -->
+      <!-- 1. Ameya's Audio Mesh & Two-Browser Simulator -->
       <div class="card">
         <div>
           <div class="card-meta">
             <span class="card-tag">Branch: Ameya's-branch</span>
-            <span style="color:#38bdf8; font-size:0.75rem; font-weight:700;">Tasks A5-A10</span>
+            <span style="color:#38bdf8; font-size:0.75rem; font-weight:700;">Tasks A4-A10</span>
           </div>
-          <h2>🚀 Spatial Audio Mesh Simulation</h2>
-          <p>Two-browser WebRTC audio mesh with dual spatial hysteresis (100px enter, 120px leave), N=4 Connection Capper with 15px swap margin, and AABB ray-casting (-6dB desk, -14dB wall + 900Hz biquad filter).</p>
+          <h2>🎧 Two-Browser Audio Mesh</h2>
+          <p>Task A6 two-window proximity audio mesh featuring 3D HRTF & Stereo panning, N=4 Connection Capper with 15px hysteresis, and real-time obstacle sound occlusion.</p>
         </div>
-        <a class="btn" href="/client/audio/mesh.html" target="_blank">Launch Audio Mesh ➔</a>
+        <div style="display:flex; gap:0.5rem;">
+          <a class="btn" style="flex:1;" href="/client/audio/mesh.html" target="_blank">HTTP Audio Mesh ➔</a>
+          <a class="btn" style="background:#047857; color:#fff; flex:1;" href="https://localhost:${httpsPort}/client/audio/mesh.html" target="_blank">HTTPS Mesh (Mic) ➔</a>
+        </div>
       </div>
 
       <!-- 2. Harpreet's 2D World Canvas -->
@@ -259,7 +270,7 @@ function renderLandingPage(port) {
             <span style="color:#a855f7; font-size:0.75rem; font-weight:700;">Tasks M1-M9</span>
           </div>
           <h2>🌍 Geospatial Engine & Rooms</h2>
-          <p>Interactive visualization of the transferred MongoDB geospatial engine: 2D planar indexing, $near distance queries (&lt;0.1ms), BFS conversation clustering, write batcher, and Task M8 Room & Obstacle persistence API.</p>
+          <p>Interactive visualization of the transferred MongoDB geospatial engine: 2D planar indexing, $near distance queries (&lt;0.6ms), BFS conversation clustering, write batcher, and Task M8 Room & Obstacle persistence API.</p>
         </div>
         <div style="display:flex; gap:0.5rem;">
           <a class="btn" style="background:#a855f7; color:#fff; flex:1;" href="/server/geo/index.html" target="_blank">Engine Visualizer ➔</a>
@@ -296,39 +307,46 @@ function renderLandingPage(port) {
         <a class="btn btn-secondary" href="/client/audio/index.html" target="_blank">Open DSP Lab ➔</a>
       </div>
 
-      <!-- 6. Official Task Sheet & Paperwork -->
+      <!-- 6. Final Report & Viva Presentation -->
       <div class="card">
         <div>
           <div class="card-meta">
-            <span class="card-tag">Project Documentation</span>
-            <span style="color:#94a3b8; font-size:0.75rem; font-weight:700;">Infotact Report</span>
+            <span class="card-tag">Final Review (Task A11)</span>
+            <span style="color:#10b981; font-size:0.75rem; font-weight:700;">Completed ✅</span>
           </div>
-          <h2>📄 Official Task Sheet & Viva Prep</h2>
-          <p>Official task sheet tracking all 39 tasks across Ameya, Abhishek, Harpreet, and transferred database tasks (M1–M9) with visual progress bars and viva defense guides.</p>
+          <h2>🎓 Final Report & Presentation</h2>
+          <p>Exhaustive final academic report with architectural diagrams, Web Audio DSP math, and interactive browser-based slide deck ready for examiner viva defense.</p>
         </div>
-        <a class="btn btn-secondary" href="/docs/WORK_TASK_SHEET_UPDATED.html" target="_blank">View Task Sheet ➔</a>
+        <div style="display:flex; gap:0.5rem;">
+          <a class="btn" style="background:#0284c7; flex:1;" href="/docs/FINAL_PRESENTATION.html" target="_blank">Launch Slide Deck ➔</a>
+          <a class="btn btn-secondary" style="flex:1;" href="/docs/FINAL_REPORT.md" target="_blank">Final Report ➔</a>
+        </div>
       </div>
     </div>
 
-    <!-- Live Automated Test Runner Section -->
+    <!-- Live Automated Test Runner & Load Test Section -->
     <div class="test-runner-card">
       <div class="test-runner-header">
         <div>
-          <h2 style="font-size:1.15rem; color:#f8fafc;">🧪 Automated Test Suite Harness (All Modules)</h2>
-          <p style="color:#94a3b8; font-size:0.8rem;">Click to execute all 28 test suites directly on localhost.</p>
+          <h2 style="font-size:1.15rem; color:#f8fafc;">🧪 Automated Verification & Load Test Harness</h2>
+          <p style="color:#94a3b8; font-size:0.8rem;">Execute all 30 unit tests or stress-test 50 & 100 concurrent avatars.</p>
         </div>
-        <button id="btnRunTests" class="btn" style="padding:0.5rem 1rem; font-size:0.85rem; cursor:pointer;">▶ Run 28 Test Suites</button>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <button id="btnRunTests" class="btn" style="padding:0.5rem 1rem; font-size:0.85rem; cursor:pointer;">▶ Run 30 Test Suites</button>
+          <button id="btnRunLoadTest" class="btn" style="background:#10b981; color:#0b0f19; padding:0.5rem 1rem; font-size:0.85rem; cursor:pointer;">⚡ Run 100-Peer Load Test</button>
+        </div>
       </div>
-      <div id="testOutput" class="test-output">Click 'Run 28 Test Suites' to verify all audio spike, WebRTC, proximity, connection capper, obstacle attenuation, and geospatial assertions...</div>
+      <div id="testOutput" class="test-output">Click 'Run 30 Test Suites' or 'Run 100-Peer Load Test' to execute automated verification directly on localhost...</div>
     </div>
 
     <footer>
-      <p>ProxiSpeak Engine running locally at <strong>http://localhost:${port}</strong> | Group 15</p>
+      <p>ProxiSpeak Engine running locally at <strong>http://localhost:${port}</strong> &amp; <strong>https://localhost:${httpsPort}</strong> | Group 15</p>
     </footer>
   </div>
 
   <script>
     const btnRunTests = document.getElementById('btnRunTests');
+    const btnRunLoadTest = document.getElementById('btnRunLoadTest');
     const testOutput = document.getElementById('testOutput');
 
     btnRunTests.addEventListener('click', async () => {
@@ -344,7 +362,24 @@ function renderLandingPage(port) {
         testOutput.textContent = 'Error executing tests: ' + e.message;
       } finally {
         btnRunTests.disabled = false;
-        btnRunTests.textContent = '▶ Re-Run Tests';
+        btnRunTests.textContent = '▶ Re-Run 30 Tests';
+      }
+    });
+
+    btnRunLoadTest.addEventListener('click', async () => {
+      btnRunLoadTest.disabled = true;
+      btnRunLoadTest.textContent = 'Benchmarking...';
+      testOutput.textContent = 'Executing node scripts/load_test.js (50 & 100 concurrent avatars)... Please wait.';
+
+      try {
+        const res = await fetch('/api/load-test');
+        const data = await res.json();
+        testOutput.textContent = data.output || 'Done';
+      } catch (e) {
+        testOutput.textContent = 'Error executing load test: ' + e.message;
+      } finally {
+        btnRunLoadTest.disabled = false;
+        btnRunLoadTest.textContent = '⚡ Re-Run Load Test';
       }
     });
   </script>
@@ -352,15 +387,15 @@ function renderLandingPage(port) {
 </html>`;
 }
 
-function startServer(port) {
-  const server = http.createServer((req, res) => {
+function createRequestHandler(port, httpsPort) {
+  return (req, res) => {
     const parsedUrl = url.parse(req.url, true);
     let pathname = decodeURIComponent(parsedUrl.pathname);
 
     // Root route -> Portal
     if (pathname === '/' || pathname === '/index.html') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      return res.end(renderLandingPage(port));
+      return res.end(renderLandingPage(port, httpsPort));
     }
 
     // --- Abhishek's Backend API Routes ---
@@ -486,6 +521,19 @@ function startServer(port) {
       return;
     }
 
+    // --- 50 & 100 Peer Load Test API (Task A11) ---
+    if (pathname === '/api/load-test') {
+      exec('node scripts/load_test.js', { cwd: ROOT_DIR }, (err, stdout, stderr) => {
+        const output = (stdout || '') + (stderr || '');
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        return res.end(JSON.stringify({
+          success: !err,
+          output: output.trim()
+        }));
+      });
+      return;
+    }
+
     // --- Branch Progress API ---
     if (pathname === '/api/progress') {
       exec('node scripts/check_progress.js', { cwd: ROOT_DIR }, (err, stdout, stderr) => {
@@ -519,14 +567,19 @@ function startServer(port) {
       const readStream = fs.createReadStream(safePath);
       readStream.pipe(res);
     });
-  });
+  };
+}
+
+function startServer(port = DEFAULT_PORT, httpsPort = DEFAULT_HTTPS_PORT) {
+  const handler = createRequestHandler(port, httpsPort);
+  const server = http.createServer(handler);
 
   server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
-      console.log(`Port ${port} in use, trying ${port + 1}...`);
-      startServer(port + 1);
+      console.log(`HTTP Port ${port} in use, trying ${port + 1}...`);
+      startServer(port + 1, httpsPort);
     } else {
-      console.error('Server error:', err);
+      console.error('HTTP Server error:', err);
     }
   });
 
@@ -534,21 +587,39 @@ function startServer(port) {
     console.log(`==================================================================`);
     console.log(`  PROXISPEAK UNIFIED MULTI-BRANCH LOCALHOST SERVER ACTIVE`);
     console.log(`==================================================================`);
-    console.log(`  Portal Hub:        http://localhost:${port}/`);
-    console.log(`  Harpreet World:    http://localhost:${port}/client/world/standalone.html`);
-    console.log(`  Ameya Audio Mesh:  http://localhost:${port}/client/audio/mesh.html`);
-    console.log(`  Milind Geospatial: http://localhost:${port}/server/geo/index.html`);
-    console.log(`  Abhishek API:      http://localhost:${port}/api/backend`);
-    console.log(`  Audio Spike Lab:   http://localhost:${port}/client/audio/index.html`);
-    console.log(`  Work Task Sheet:   http://localhost:${port}/docs/WORK_TASK_SHEET_UPDATED.html`);
-    console.log(`==================================================================`);
+    console.log(`  HTTP Portal Hub:    http://localhost:${port}/`);
+    console.log(`  Harpreet World:     http://localhost:${port}/client/world/standalone.html`);
+    console.log(`  Ameya Audio Mesh:   http://localhost:${port}/client/audio/mesh.html`);
+    console.log(`  Milind Geospatial:  http://localhost:${port}/server/geo/index.html`);
+    console.log(`  Final Slide Deck:   http://localhost:${port}/docs/FINAL_PRESENTATION.html`);
+    console.log(`  Work Task Sheet:    http://localhost:${port}/docs/WORK_TASK_SHEET_UPDATED.html`);
+
+    // Try starting HTTPS server
+    try {
+      const httpsOpts = getHttpsOptions();
+      const httpsServer = https.createServer(httpsOpts, handler);
+      httpsServer.on('error', (hErr) => {
+        if (hErr.code === 'EADDRINUSE') {
+          console.log(`HTTPS Port ${httpsPort} in use.`);
+        } else {
+          console.warn('HTTPS error:', hErr.message);
+        }
+      });
+      httpsServer.listen(httpsPort, () => {
+        console.log(`  HTTPS Secure Hub:   https://localhost:${httpsPort}/ (WebRTC mic enabled)`);
+        console.log(`==================================================================`);
+      });
+    } catch (e) {
+      console.log(`  HTTPS Note: ${e.message}`);
+      console.log(`==================================================================`);
+    }
   });
 
   return server;
 }
 
 if (require.main === module) {
-  startServer(DEFAULT_PORT);
+  startServer(DEFAULT_PORT, DEFAULT_HTTPS_PORT);
 }
 
-module.exports = { startServer };
+module.exports = { startServer, createRequestHandler };

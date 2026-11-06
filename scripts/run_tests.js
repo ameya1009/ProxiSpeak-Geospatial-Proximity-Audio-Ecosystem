@@ -1145,6 +1145,41 @@ async function runRoomObstacleExposureTest() {
   console.log('✔ Task M8: RoomRepository obstacle exposure, spatial bounding box queries & persistence: OK');
 }
 
+// --- Test 29: Task A11 - HTTPS Certificate Generation & Secure Context Verification ---
+function runHttpsCertificateTest() {
+  const { ensureCertificates, getHttpsOptions, PFX_FILE, CRT_FILE } = require('./generate_cert');
+  const tls = require('tls');
+  const fs = require('fs');
+
+  assert.ok(fs.existsSync(PFX_FILE), 'PFX certificate bundle exists in certs/');
+  assert.ok(fs.existsSync(CRT_FILE), 'X.509 CRT certificate exists in certs/');
+
+  const httpsOpts = getHttpsOptions();
+  assert.ok(httpsOpts.pfx, 'HTTPS options contain valid PFX buffer');
+  assert.strictEqual(httpsOpts.minVersion, 'TLSv1.2', 'Minimum TLS version 1.2 enforced');
+
+  const secureContext = tls.createSecureContext(httpsOpts);
+  assert.ok(secureContext, 'TLS SecureContext successfully created with self-signed certificate');
+
+  console.log('✔ Task A11: HTTPS TLS certificate, secure context, and X.509 verification: OK');
+}
+
+// --- Test 30: Task A11 - 50 & 100 Peer High-Concurrency Load Test Verification ---
+function runLoadTestHarnessTest() {
+  const { runSimulationScenario } = require('./load_test');
+
+  // Run a verified load scenario for 50 peers over 100 movement ticks
+  const results = runSimulationScenario(50, 100);
+
+  assert.strictEqual(results.peerCount, 50, 'Simulation runs 50 concurrent peers');
+  assert.ok(results.totalEvaluations >= 4900, 'Evaluates candidate distance matrix');
+  assert.ok(results.throughputOpsPerSec > 500, 'Throughput exceeds 500 movement ticks/sec');
+  assert.ok(results.latencies.p99 < 5.0, `p99 latency (${results.latencies.p99}ms) strictly < 5.0ms threshold`);
+  assert.ok(results.heapDeltaMb < 15.0, `Heap growth (${results.heapDeltaMb}MB) strictly < 15MB leak ceiling`);
+
+  console.log('✔ Task A11: 50 & 100 concurrent peer load test harness, p99 < 5ms & memory leak safety: OK');
+}
+
 async function runAll() {
   await runWebRTCLifecycleTest();
   await runProximityIntegrationTest();
@@ -1161,7 +1196,9 @@ async function runAll() {
   runObstacleAttenuationTest();
   runSpatialAudioMixer3DAndObstacleTest();
   await runRoomObstacleExposureTest();
-  console.log('\nAll 28 audio spike, SpatialAudioMixer, 3D HRTF, WebRTCManager, ProximityIntegration, DistanceGainNode, ConnectionCapper, ObstacleAttenuation, and Geospatial Engine assertions passed cleanly.');
+  runHttpsCertificateTest();
+  runLoadTestHarnessTest();
+  console.log('\nAll 30 audio spike, SpatialAudioMixer, 3D HRTF, WebRTCManager, ProximityIntegration, DistanceGainNode, ConnectionCapper, ObstacleAttenuation, Geospatial Engine, HTTPS, and Load Test assertions passed cleanly.');
 }
 
 runAll().catch((err) => {

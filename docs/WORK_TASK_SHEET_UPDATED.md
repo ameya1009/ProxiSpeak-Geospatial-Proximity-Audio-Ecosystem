@@ -58,13 +58,13 @@
 | **A8** | 27–30 Oct | `DistanceGainNode`: Web Audio remote stream routing, 50ms smooth ramps, click elimination | `client/audio/src/DistanceGainNode.js` | **Completed ✅** |
 | **A9** | 30 Oct – 1 Nov | `ConnectionCapper`: Cap simultaneous connections to N nearest peers + leave hysteresis | `client/audio/src/ConnectionCapper.js` | **Completed ✅** |
 | **A10** | 2–4 Nov | Stereo & 3D HRTF binaural panning from relative coordinates, obstacle sound attenuation & low-pass biquad filtering | `client/audio/src/SpatialAudioMixer.js`, `client/audio/src/ObstacleAttenuation.js` | **Completed ✅** |
-| **A11** | 4–6 Nov | Deploy over HTTPS, load test harness (50–100 peers), assemble final report and PPT | `docs/FINAL_REPORT.md` | In Progress |
+| **A11** | 4–6 Nov | Deploy over HTTPS, load test harness (50–100 peers), assemble final report and PPT | `docs/FINAL_REPORT.md`, `docs/FINAL_PRESENTATION.html`, `scripts/load_test.js` | **Completed ✅** |
 
 ---
 
 ### 4. Verification & Attestation
 
-- **Automated Test Coverage**: **28 out of 28 unit test suites passing cleanly (100%)** via `node scripts/run_tests.js`.
+- **Automated Test Coverage**: **30 out of 30 unit test suites passing cleanly (100%)** via `node scripts/run_tests.js`.
 - **Latency Benchmark**: Verified query execution on 50 & 100 concurrent avatars ($p99 < 0.6\text{ms}$ vs rubric threshold of $< 20\text{ms}$).
 - **Evidence-Based Documentation**: Updated daily check-in logs in `docs/DAILY_CHECKINS.md` and viva defense guide in `docs/VIVA_PREPARATION.md`.
 - **Git Branch Safety**: Strictly committed and pushed to `Ameya's-branch` (`origin/Ameya's-branch`).
