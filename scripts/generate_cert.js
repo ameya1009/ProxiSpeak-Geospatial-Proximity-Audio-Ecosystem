@@ -2,12 +2,14 @@
  * scripts/generate_cert.js
  * SSL/TLS Certificate Manager & HTTPS Options Provider
  * Task A11: Deploy over HTTPS, load test, assemble report and PPT
+ *
+ * Provides valid localhost SSL/TLS credentials for secure WebRTC microphone access.
+ * Pure Node.js standard library - zero external dependencies.
  */
 
 const fs = require('fs');
 const path = require('path');
 const tls = require('tls');
-const { execSync } = require('child_process');
 
 const CERTS_DIR = path.resolve(__dirname, '..', 'certs');
 const PFX_FILE = path.join(CERTS_DIR, 'server.pfx');
@@ -20,39 +22,46 @@ function ensureCertificates() {
     fs.mkdirSync(CERTS_DIR, { recursive: true });
   }
 
-  // 1. Check if valid PFX exists
+  // 1. Check if valid PFX bundle exists
   if (fs.existsSync(PFX_FILE)) {
     try {
       const pfx = fs.readFileSync(PFX_FILE);
       tls.createSecureContext({ pfx, passphrase: PFX_PASSWORD });
       return { pfxFile: PFX_FILE, crtFile: CRT_FILE, password: PFX_PASSWORD };
     } catch (e) {
-      console.warn('Existing PFX certificate invalid, regenerating...', e.message);
+      console.warn('Existing PFX certificate invalid:', e.message);
     }
   }
 
-  // 2. Generate certificate using PowerShell on Windows if needed
-  const psScript = path.join(__dirname, 'generate_cert_win.ps1');
-  if (fs.existsSync(psScript)) {
+  // 2. Check if PEM Key & CRT pair exists
+  if (fs.existsSync(KEY_FILE) && fs.existsSync(CRT_FILE)) {
     try {
-      execSync(`powershell -ExecutionPolicy Bypass -File "${psScript}"`, { stdio: 'inherit' });
-      if (fs.existsSync(PFX_FILE)) {
-        return { pfxFile: PFX_FILE, crtFile: CRT_FILE, password: PFX_PASSWORD };
-      }
-    } catch (err) {
-      console.error('PowerShell cert generation failed:', err.message);
+      const key = fs.readFileSync(KEY_FILE);
+      const cert = fs.readFileSync(CRT_FILE);
+      tls.createSecureContext({ key, cert });
+      return { keyFile: KEY_FILE, crtFile: CRT_FILE };
+    } catch (e) {
+      console.warn('Existing PEM certificate invalid:', e.message);
     }
   }
 
-  throw new Error('Unable to acquire or generate valid SSL/TLS certificate for HTTPS deployment.');
+  throw new Error('Valid SSL/TLS certificate bundle (certs/server.pfx or certs/server.crt) not found.');
 }
 
 function getHttpsOptions() {
   ensureCertificates();
-  const pfx = fs.readFileSync(PFX_FILE);
+
+  if (fs.existsSync(PFX_FILE)) {
+    return {
+      pfx: fs.readFileSync(PFX_FILE),
+      passphrase: PFX_PASSWORD,
+      minVersion: 'TLSv1.2'
+    };
+  }
+
   return {
-    pfx,
-    passphrase: PFX_PASSWORD,
+    key: fs.readFileSync(KEY_FILE),
+    cert: fs.readFileSync(CRT_FILE),
     minVersion: 'TLSv1.2'
   };
 }
@@ -67,5 +76,6 @@ module.exports = {
   getHttpsOptions,
   PFX_FILE,
   CRT_FILE,
+  KEY_FILE,
   PFX_PASSWORD
 };

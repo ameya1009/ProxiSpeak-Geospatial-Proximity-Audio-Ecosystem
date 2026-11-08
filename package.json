@@ -6,6 +6,8 @@
   "scripts": {
     "progress": "node scripts/check_progress.js",
     "test": "node scripts/run_tests.js",
+    "loadtest": "node scripts/load_test.js",
+    "cert": "node scripts/generate_cert.js",
     "serve": "node scripts/serve.js",
     "start": "node scripts/serve.js"
   }

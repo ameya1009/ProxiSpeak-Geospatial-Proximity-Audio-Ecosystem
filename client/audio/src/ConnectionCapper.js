@@ -67,8 +67,9 @@ class ConnectionCapper {
    * @param {string} peerId
    * @param {number} x
    * @param {number} y
+   * @param {boolean} [autoEvaluate=true]
    */
-  updatePeerPosition(peerId, x, y) {
+  updatePeerPosition(peerId, x, y, autoEvaluate = true) {
     if (!peerId) return;
 
     const pos = { x, y };
@@ -89,7 +90,9 @@ class ConnectionCapper {
       peer.distance = distance;
     }
 
-    this.evaluateConnections();
+    if (autoEvaluate) {
+      this.evaluateConnections();
+    }
     return peer;
   }
 
