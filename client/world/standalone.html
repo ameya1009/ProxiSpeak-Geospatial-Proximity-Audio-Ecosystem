@@ -22,7 +22,7 @@
 
     body {
       margin: 0;
-      padding: 16px 12px;
+      padding: 14px 12px;
       background: var(--bg);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
@@ -30,8 +30,8 @@
       flex-direction: column;
       align-items: center;
       min-height: 100vh;
-      box-sizing: border-box;
       overflow-x: hidden;
+      user-select: none;
     }
 
     /* Top Navigation & Worker Header Bar */
@@ -47,7 +47,7 @@
     }
     .header-title-group h1 {
       margin: 0;
-      font-size: 1.5rem;
+      font-size: 1.45rem;
       color: var(--accent);
       display: flex;
       align-items: center;
@@ -56,7 +56,7 @@
     .header-title-group p {
       margin: 2px 0 0 0;
       color: var(--muted);
-      font-size: 0.85rem;
+      font-size: 0.82rem;
     }
 
     .worker-pill {
@@ -77,26 +77,6 @@
       display: inline-block;
     }
 
-    .badge-group {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .badge {
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 9999px;
-      font-size: 0.72rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-    .badge-frontend { background: #059669; color: white; }
-    .badge-backend { background: #d97706; color: white; }
-    .badge-db { background: #7c3aed; color: white; }
-    .badge-audio { background: #0284c7; color: white; }
-
     /* Office Canvas */
     canvas#worldCanvas {
       display: block;
@@ -107,6 +87,11 @@
       border-radius: 10px;
       box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.6);
       cursor: crosshair;
+      outline: none;
+    }
+    canvas#worldCanvas:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.4);
     }
 
     /* Controls Panel */
@@ -147,8 +132,6 @@
     .btn-audio-init:hover { background: #0369a1; }
     .btn-secondary { background: #334155; color: #f8fafc; }
     .btn-secondary:hover { background: #475569; }
-    .btn-danger { background: #dc2626; }
-    .btn-danger:hover { background: #b91c1c; }
 
     .hud {
       font-family: monospace;
@@ -184,6 +167,29 @@
     .dot-online { background: #10b981; }
     .dot-offline { background: #ef4444; }
 
+    /* Movement Guidance Banner */
+    .movement-hint {
+      max-width: 800px;
+      width: 100%;
+      margin-top: 6px;
+      font-size: 0.76rem;
+      color: #64748b;
+      text-align: center;
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .key-badge {
+      background: #1e293b;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 6px;
+      color: #e2e8f0;
+      font-family: monospace;
+      font-weight: 700;
+    }
+
     /* ============================================================== */
     /* OFFICE WORKER LOGIN & REGISTRATION MODAL OVERLAY (GATHER STYLE) */
     /* ============================================================== */
@@ -193,7 +199,7 @@
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: rgba(11, 15, 25, 0.88);
+      background: rgba(11, 15, 25, 0.9);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
       z-index: 1000;
@@ -576,7 +582,7 @@
   <div class="header-bar">
     <div class="header-title-group">
       <h1>🏢 ProxiSpeak Office <span style="font-size: 0.85rem; color: #10b981; font-weight: normal;">● Live Floor</span></h1>
-      <p>Spatial Web Audio Mesh &bull; MongoDB 2D Proximity &bull; Obstacle Acoustic Occlusion</p>
+      <p>Multi-Peer Spatial Audio Mesh &bull; Real-time Proximity &bull; Obstacle Acoustic Occlusion</p>
     </div>
 
     <!-- Active Office Worker Identity Badge -->
@@ -590,12 +596,20 @@
         🚪 Switch Worker / Logout
       </button>
       <a href="/hub" class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.75rem;">
-        🛠️ Developer Hub &amp; Diagnostics
+        🛠️ Diagnostics Hub
       </a>
     </div>
   </div>
 
-  <canvas id="worldCanvas" width="800" height="500"></canvas>
+  <!-- 2D Canvas with tabindex for immediate focus and smooth movement -->
+  <canvas id="worldCanvas" width="800" height="500" tabindex="0"></canvas>
+
+  <div class="movement-hint">
+    <span>Move: <span class="key-badge">W</span> <span class="key-badge">A</span> <span class="key-badge">S</span> <span class="key-badge">D</span> or <span class="key-badge">Arrow Keys</span></span>
+    <span>Or <span class="key-badge">Click / Tap</span> on floor</span>
+    <span>Mute: <span class="key-badge">M</span></span>
+    <span>Toggle Bot Audio: <span class="key-badge">T</span></span>
+  </div>
 
   <div class="controls-panel">
     <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
@@ -604,15 +618,16 @@
       <button id="btnToggleSpeak" class="btn btn-secondary">Toggle Teammate Speaking (T)</button>
     </div>
     <div class="hud" id="lblHud">
-      Your Pos: (400, 250) | Teammate Dist: 200px (Out of range)
+      Your Pos: (400, 250) | In Range: 0 peers
     </div>
   </div>
 
   <div class="telemetry-bar">
-    <div class="telemetry-item"><span id="dotBackend" class="status-dot dot-online"></span> Backend Sync: <strong id="lblBackendSync">Connected (/api/users/location)</strong></div>
-    <div class="telemetry-item">Gain: <strong id="lblGain">0.0%</strong> | Pan: <strong id="lblPan">0.0 (C)</strong></div>
-    <div class="telemetry-item">Occlusion: <strong id="lblOcclusion">Clear (20kHz)</strong></div>
-    <div class="telemetry-item">DB Obstacles: <strong id="lblObstacleCount">5 Desks Loaded</strong></div>
+    <div class="telemetry-item"><span id="dotBackend" class="status-dot dot-online"></span> Sync: <strong id="lblBackendSync">Real-Time Mesh Ready</strong></div>
+    <div class="telemetry-item">In Earshot: <strong id="lblPeersInRange" style="color:#10b981;">0 Peers</strong></div>
+    <div class="telemetry-item">Nearest Distance: <strong id="lblNearestDist">-- px</strong></div>
+    <div class="telemetry-item">Spatial Audio Gain: <strong id="lblGain">0.0%</strong> | Pan: <strong id="lblPan">0.0 (C)</strong></div>
+    <div class="telemetry-item">Desk Occlusion: <strong id="lblOcclusion">Clear (20kHz)</strong></div>
   </div>
 
   <script>
@@ -737,7 +752,6 @@
           }
           drawMeter();
         }).catch(err => {
-          // Fallback simulation for offline/unsupported mic environments
           simulateMicMeter();
         });
       } else {
@@ -793,11 +807,22 @@
       // Stop mic test if running
       if (micTestActive) toggleMicTest();
 
+      // Blur any focused input to ensure keyboard WASD/arrows work immediately!
+      if (document.activeElement) document.activeElement.blur();
+
       // Dismiss Modal
       document.getElementById('loginModal').classList.add('hidden');
 
-      // Initialize audio context
+      // Autofocus canvas & window for immediate keyboard movement
+      const c = document.getElementById('worldCanvas');
+      if (c) c.focus();
+      window.focus();
+
+      // Initialize audio context on this click gesture
       initAudioContext();
+
+      // Broadcast join presence to all other open tabs / windows
+      broadcastPresence('peer:announce');
 
       // Sync initial position to backend
       scheduleLocationSync();
@@ -810,6 +835,10 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId: currentWorker.workerId })
         }).catch(() => {});
+
+        if (officeChannel) {
+          officeChannel.postMessage({ type: 'peer:leave', userId: currentWorker.workerId });
+        }
 
         localStorage.removeItem('proxispeak_worker');
         document.getElementById('loginModal').classList.remove('hidden');
@@ -831,34 +860,37 @@
     let audioStarted = false;
     const roomId = 'default-office';
 
+    // Local Player Avatar (Spawn at safe location in Main Hall)
     const avatar = {
-      x: 400,
-      y: 250,
+      x: 250,
+      y: 160,
       radius: 16,
-      speed: 4,
+      speed: 4.5,
     };
 
-    // Remote teammate avatar (Harpreet's initial reference)
+    // Remote teammate avatar (Harpreet's initial reference / bot coworker)
     const remoteAvatar = {
       id: 'teammate-1',
-      x: 600,
-      y: 250,
+      userId: 'teammate-1',
+      x: 520,
+      y: 160,
       radius: 16,
-      name: "Teammate",
-      role: "Engineering",
-      color: "#16a34a"
+      name: "Alex Teammate",
+      department: "Engineering",
+      avatarColor: "#16a34a",
+      isSpeaking: true
     };
 
-    // Active peers retrieved from backend
+    // Active peers retrieved from real-time BroadcastChannel & Backend
     const activePeers = new Map();
     const keys = {};
     let target = null;
 
     // Obstacles: initial fallback + populated dynamically from Milind's RoomRepository
     let obstacles = [
-      { id: 'desk-1', x: 100, y: 100, width: 120, height: 60, type: 'desk', acousticAttenuationDb: 6.0 },
-      { id: 'desk-2', x: 300, y: 100, width: 120, height: 60, type: 'desk', acousticAttenuationDb: 6.0 },
-      { id: 'desk-3', x: 550, y: 100, width: 120, height: 60, type: 'desk', acousticAttenuationDb: 6.0 },
+      { id: 'desk-1', x: 100, y: 80, width: 120, height: 60, type: 'desk', acousticAttenuationDb: 6.0 },
+      { id: 'desk-2', x: 300, y: 80, width: 120, height: 60, type: 'desk', acousticAttenuationDb: 6.0 },
+      { id: 'desk-3', x: 550, y: 80, width: 120, height: 60, type: 'desk', acousticAttenuationDb: 6.0 },
       { id: 'desk-4', x: 100, y: 320, width: 120, height: 60, type: 'desk', acousticAttenuationDb: 6.0 },
       { id: 'desk-5', x: 550, y: 320, width: 120, height: 60, type: 'desk', acousticAttenuationDb: 6.0 },
     ];
@@ -870,12 +902,9 @@
       { name: "MEETING ROOM", x: 400, y: 260, width: 380, height: 220 },
     ];
 
-    // --- Web Audio Spatial Sound Pipeline (Ameya) ---
+    // --- Web Audio Spatial Multi-Peer Sound Pipeline (Ameya Tasks A4, A8, A10) ---
     let audioCtx = null;
-    let peerOsc = null;
-    let peerFilter = null;
-    let peerPanner = null;
-    let peerGain = null;
+    const peerAudioMap = new Map(); // peerId -> { osc, filter, panner, gain }
 
     function initAudioContext() {
       if (audioStarted && audioCtx) return;
@@ -887,38 +916,52 @@
         audioCtx.resume();
       }
 
-      peerOsc = audioCtx.createOscillator();
-      peerOsc.type = 'triangle';
-      peerOsc.frequency.setValueAtTime(220, audioCtx.currentTime);
-
-      peerFilter = audioCtx.createBiquadFilter();
-      peerFilter.type = 'lowpass';
-      peerFilter.frequency.setValueAtTime(20000, audioCtx.currentTime);
-
-      if (audioCtx.createStereoPanner) {
-        peerPanner = audioCtx.createStereoPanner();
-      } else {
-        peerPanner = audioCtx.createPanner();
-        peerPanner.panningModel = 'equalpower';
-      }
-
-      peerGain = audioCtx.createGain();
-      peerGain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
-
-      peerOsc.connect(peerFilter);
-      peerFilter.connect(peerPanner);
-      peerPanner.connect(peerGain);
-      peerGain.connect(audioCtx.destination);
-
-      peerOsc.start();
       audioStarted = true;
-
       const btn = document.getElementById("btnAudioContext");
       btn.textContent = "🔊 Audio Engine Active";
       btn.style.background = "#10b981";
     }
 
-    // AABB slab ray-casting for obstacle sound occlusion
+    function getOrCreatePeerAudio(peerId, baseFreq = 220) {
+      if (!audioCtx) return null;
+      if (peerAudioMap.has(peerId)) return peerAudioMap.get(peerId);
+
+      try {
+        const osc = audioCtx.createOscillator();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(baseFreq, audioCtx.currentTime);
+
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(20000, audioCtx.currentTime);
+
+        let panner = null;
+        if (audioCtx.createStereoPanner) {
+          panner = audioCtx.createStereoPanner();
+        } else {
+          panner = audioCtx.createPanner();
+          panner.panningModel = 'equalpower';
+        }
+
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+
+        osc.connect(filter);
+        filter.connect(panner);
+        panner.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start();
+
+        const nodeBundle = { osc, filter, panner, gain };
+        peerAudioMap.set(peerId, nodeBundle);
+        return nodeBundle;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // AABB slab ray-casting for obstacle sound occlusion (Task A10)
     function segmentIntersectsAABB(p1, p2, box) {
       const minX = box.x;
       const maxX = box.x + box.width;
@@ -967,31 +1010,96 @@
       return { occluded: false, obstacle: null };
     }
 
-    // Furniture collision detection
+    // Furniture collision detection with padding
     function isBlocked(x, y) {
       for (const obstacle of obstacles) {
         const closestX = Math.max(obstacle.x, Math.min(x, obstacle.x + obstacle.width));
         const closestY = Math.max(obstacle.y, Math.min(y, obstacle.y + obstacle.height));
         const dx = x - closestX;
         const dy = y - closestY;
-        if (dx * dx + dy * dy < avatar.radius * avatar.radius) {
+        if (dx * dx + dy * dy < (avatar.radius + 2) * (avatar.radius + 2)) {
           return true;
         }
       }
       return false;
     }
 
+    // Smooth movement with wall & desk corner sliding
     function tryMove(dx, dy) {
-      const nextX = Math.max(avatar.radius, Math.min(canvas.width - avatar.radius, avatar.x + dx));
-      const nextY = Math.max(avatar.radius, Math.min(canvas.height - avatar.radius, avatar.y + dy));
+      const nextX = Math.max(avatar.radius + 20, Math.min(canvas.width - avatar.radius - 20, avatar.x + dx));
+      const nextY = Math.max(avatar.radius + 20, Math.min(canvas.height - avatar.radius - 20, avatar.y + dy));
 
       if (!isBlocked(nextX, nextY)) {
         avatar.x = nextX;
         avatar.y = nextY;
         scheduleLocationSync();
+        broadcastPresence('peer:move');
+        return true;
+      }
+
+      // Corner sliding: test X-only and Y-only
+      let moved = false;
+      if (dx !== 0 && !isBlocked(nextX, avatar.y)) {
+        avatar.x = nextX;
+        moved = true;
+      }
+      if (dy !== 0 && !isBlocked(avatar.x, nextY)) {
+        avatar.y = nextY;
+        moved = true;
+      }
+      if (moved) {
+        scheduleLocationSync();
+        broadcastPresence('peer:move');
         return true;
       }
       return false;
+    }
+
+    // --- Real-time Cross-Tab Mesh Synchronization (BroadcastChannel) ---
+    const officeChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('proxispeak_office_room') : null;
+
+    if (officeChannel) {
+      officeChannel.onmessage = (event) => {
+        const data = event.data;
+        if (!data || !data.worker || data.worker.workerId === currentWorker.workerId) return;
+
+        if (data.type === 'peer:announce' || data.type === 'peer:move' || data.type === 'peer:echo') {
+          activePeers.set(data.worker.workerId, {
+            id: data.worker.workerId,
+            userId: data.worker.workerId,
+            name: data.worker.name,
+            department: data.worker.department,
+            avatarColor: data.worker.avatarColor,
+            x: data.x,
+            y: data.y,
+            isSpeaking: data.isSpeaking !== false,
+            lastSeen: Date.now()
+          });
+
+          // Echo our location back if new peer announced
+          if (data.type === 'peer:announce') {
+            broadcastPresence('peer:echo');
+          }
+        } else if (data.type === 'peer:leave') {
+          activePeers.delete(data.userId);
+          const bundle = peerAudioMap.get(data.userId);
+          if (bundle && bundle.gain) {
+            bundle.gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+          }
+        }
+      };
+    }
+
+    function broadcastPresence(type = 'peer:move') {
+      if (officeChannel) {
+        officeChannel.postMessage({
+          type: type,
+          worker: currentWorker,
+          x: avatar.x,
+          y: avatar.y,
+          isSpeaking: !isMuted
+        });
+      }
     }
 
     // --- Full-Stack REST Backend & Geospatial Sync ---
@@ -1013,11 +1121,11 @@
             y: Math.round(avatar.y)
           })
         }).then(r => r.json()).then(data => {
-          document.getElementById('lblBackendSync').textContent = `Connected (${Math.round(avatar.x)}, ${Math.round(avatar.y)})`;
+          document.getElementById('lblBackendSync').textContent = `Mesh & REST Active (${Math.round(avatar.x)}, ${Math.round(avatar.y)})`;
           document.getElementById('dotBackend').className = 'status-dot dot-online';
         }).catch(err => {
-          document.getElementById('lblBackendSync').textContent = 'Backend Offline';
-          document.getElementById('dotBackend').className = 'status-dot dot-offline';
+          document.getElementById('lblBackendSync').textContent = 'Local Mesh Active';
+          document.getElementById('dotBackend').className = 'status-dot dot-online';
         });
       }, 50);
     }
@@ -1040,7 +1148,7 @@
         .then(res => {
           if (res.success && Array.isArray(res.data)) {
             for (const peer of res.data) {
-              if (peer.userId !== currentWorker.workerId) {
+              if (peer.userId !== currentWorker.workerId && !activePeers.has(peer.userId)) {
                 activePeers.set(peer.userId, peer);
               }
             }
@@ -1049,7 +1157,7 @@
         .catch(() => {});
     }, 2000);
 
-    // --- Update Loop: Audio Scheduling & Movement ---
+    // --- Update Loop: Multi-Peer Audio Scheduling & Movement ---
     function update() {
       let dx = 0;
       let dy = 0;
@@ -1076,49 +1184,100 @@
         }
       }
 
-      // Proximity & Spatial Audio parameter calculation
-      const dist = Math.hypot(remoteAvatar.x - avatar.x, remoteAvatar.y - avatar.y);
+      // --- Multi-Peer Proximity & Spatial Audio Engine ---
       const earshotRadius = 100;
-      const inRange = dist <= earshotRadius;
+      const leaveRadius = 120;
+      let inRangeCount = 0;
+      let minDistance = Infinity;
+      let closestPeerName = 'None';
+      let closestPeerGain = 0;
+      let closestPeerPan = 0;
+      let worstOcclusion = { occluded: false };
 
-      // Inverse Distance Gain Curve: 1 - d/r (capped at 0)
-      let baseGain = inRange ? Math.max(0, 1 - dist / earshotRadius) : 0;
-      if (isMuted || !isTeammateSpeaking) {
-        baseGain = 0;
-      }
+      // Collect all active peers (synthetic teammate + real peers)
+      const allPeers = [];
+      remoteAvatar.isSpeaking = isTeammateSpeaking;
+      allPeers.push(remoteAvatar);
 
-      // Stereo Panning: relative X delta / earshotRadius (-1 left, +1 right)
-      const relX = remoteAvatar.x - avatar.x;
-      const panValue = Math.max(-1, Math.min(1, relX / earshotRadius));
-
-      // Line of Sight Acoustic Occlusion
-      const los = checkOcclusion(avatar, remoteAvatar);
-      let targetCutoff = 20000;
-      let effectiveGain = baseGain;
-
-      if (los.occluded && inRange) {
-        effectiveGain = baseGain * 0.45; // -6dB acoustic desk loss
-        targetCutoff = 550; // Low-pass filter muffles high frequencies
-      }
-
-      // Smooth Web Audio automation
-      if (audioStarted && audioCtx && peerGain && peerFilter) {
-        const t = audioCtx.currentTime + 0.05;
-        peerGain.gain.linearRampToValueAtTime(Math.max(0.0001, effectiveGain), t);
-        peerFilter.frequency.linearRampToValueAtTime(targetCutoff, t);
-        if (peerPanner && peerPanner.pan) {
-          peerPanner.pan.linearRampToValueAtTime(panValue, t);
+      for (const [id, peer] of activePeers.entries()) {
+        if (id !== currentWorker.workerId && id !== remoteAvatar.id) {
+          allPeers.push(peer);
         }
       }
 
-      // Update UI HUD & Telemetry
-      document.getElementById("lblHud").textContent = 
-        `Your Pos: (${Math.round(avatar.x)}, ${Math.round(avatar.y)}) | Teammate: ${Math.round(dist)}px ${inRange ? "🔊 (IN EARSHOT)" : "🔇 (OUT OF RANGE)"}`;
-      
-      document.getElementById("lblGain").textContent = `${Math.round(effectiveGain * 100)}%`;
-      document.getElementById("lblPan").textContent = `${panValue.toFixed(2)} (${panValue < -0.1 ? 'L' : panValue > 0.1 ? 'R' : 'C'})`;
-      document.getElementById("lblOcclusion").textContent = los.occluded ? `Muffled (${targetCutoff}Hz -6dB)` : `Clear (${targetCutoff}Hz)`;
-      document.getElementById("lblOcclusion").style.color = los.occluded ? '#f59e0b' : '#10b981';
+      for (const peer of allPeers) {
+        const px = peer.x !== undefined ? peer.x : 200;
+        const py = peer.y !== undefined ? peer.y : 200;
+        const dist = Math.hypot(px - avatar.x, py - avatar.y);
+
+        if (dist < minDistance) {
+          minDistance = dist;
+          closestPeerName = peer.name || peer.id || peer.userId || 'Teammate';
+        }
+
+        const inRange = dist <= earshotRadius;
+        if (inRange) inRangeCount++;
+
+        // Inverse Distance Gain: Gain = max(0, 1 - d / R)
+        let baseGain = 0;
+        if (dist <= leaveRadius) {
+          baseGain = Math.max(0, 1 - dist / leaveRadius);
+        }
+        if (isMuted || peer.isSpeaking === false) {
+          baseGain = 0;
+        }
+
+        // Relative Stereo Panning
+        const relX = px - avatar.x;
+        const panValue = Math.max(-1, Math.min(1, relX / leaveRadius));
+
+        // Line of Sight Acoustic Occlusion (Task A10)
+        const los = checkOcclusion(avatar, { x: px, y: py });
+        let targetCutoff = 20000;
+        let effectiveGain = baseGain;
+
+        if (los.occluded && inRange) {
+          effectiveGain = baseGain * 0.45; // -6dB desk transmission loss
+          targetCutoff = 550; // Low-pass muffling
+          worstOcclusion = los;
+        }
+
+        if (dist === minDistance) {
+          closestPeerGain = effectiveGain;
+          closestPeerPan = panValue;
+        }
+
+        // Smooth Web Audio Ramp (Task A8 click-prevention 50ms)
+        if (audioStarted && audioCtx) {
+          const charCodeSum = (peer.name || 'P').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+          const pitch = 180 + (charCodeSum % 140);
+          const peerAudio = getOrCreatePeerAudio(peer.id || peer.userId, pitch);
+
+          if (peerAudio) {
+            const t = audioCtx.currentTime + 0.05;
+            peerAudio.gain.gain.linearRampToValueAtTime(Math.max(0.0001, effectiveGain), t);
+            peerAudio.filter.frequency.linearRampToValueAtTime(targetCutoff, t);
+            if (peerAudio.panner && peerAudio.panner.pan) {
+              peerAudio.panner.pan.linearRampToValueAtTime(panValue, t);
+            }
+          }
+        }
+      }
+
+      // Update HUD and Telemetry
+      const hud = document.getElementById("lblHud");
+      if (inRangeCount > 0) {
+        hud.textContent = `Your Pos: (${Math.round(avatar.x)}, ${Math.round(avatar.y)}) | In Earshot: ${inRangeCount} peers | Nearest: ${closestPeerName} (${Math.round(minDistance)}px) 🔊`;
+      } else {
+        hud.textContent = `Your Pos: (${Math.round(avatar.x)}, ${Math.round(avatar.y)}) | Nearest: ${closestPeerName} (${minDistance === Infinity ? '--' : Math.round(minDistance)}px) 🔇 (Walk within 100px to talk)`;
+      }
+
+      document.getElementById("lblPeersInRange").textContent = `${inRangeCount} Peers`;
+      document.getElementById("lblNearestDist").textContent = minDistance === Infinity ? '-- px' : `${Math.round(minDistance)} px`;
+      document.getElementById("lblGain").textContent = `${Math.round(closestPeerGain * 100)}%`;
+      document.getElementById("lblPan").textContent = `${closestPeerPan.toFixed(2)} (${closestPeerPan < -0.1 ? 'L' : closestPeerPan > 0.1 ? 'R' : 'C'})`;
+      document.getElementById("lblOcclusion").textContent = worstOcclusion.occluded ? `Desk Muffled (550Hz -6dB)` : `Clear (20kHz)`;
+      document.getElementById("lblOcclusion").style.color = worstOcclusion.occluded ? '#f59e0b' : '#10b981';
     }
 
     // Draw helper: Rounded pill badge for avatar overhead labels
@@ -1126,13 +1285,13 @@
       ctx.save();
       ctx.font = "bold 11px Arial";
       const nameWidth = ctx.measureText(name).width;
-      const boxWidth = Math.max(60, nameWidth + 16);
+      const boxWidth = Math.max(64, nameWidth + 16);
       const boxHeight = 22;
       const boxX = x - boxWidth / 2;
       const boxY = y - boxHeight;
 
       // Dark background pill
-      ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+      ctx.fillStyle = "rgba(15, 23, 42, 0.88)";
       ctx.beginPath();
       ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 5);
       ctx.fill();
@@ -1181,27 +1340,46 @@
         ctx.fillText(obstacle.type ? obstacle.type.toUpperCase() : "DESK", obstacle.x + obstacle.width / 2, obstacle.y + obstacle.height / 2 + 4);
       }
 
-      // 4. Acoustic line-of-sight ray indicator between you and teammate
-      const los = checkOcclusion(avatar, remoteAvatar);
-      ctx.beginPath();
-      ctx.moveTo(avatar.x, avatar.y);
-      ctx.lineTo(remoteAvatar.x, remoteAvatar.y);
-      ctx.strokeStyle = los.occluded ? "rgba(245, 158, 11, 0.45)" : "rgba(16, 185, 129, 0.35)";
-      ctx.lineWidth = los.occluded ? 2 : 1;
-      ctx.setLineDash([4, 4]);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      // 4. Collect all peers to render
+      const renderPeers = [];
+      remoteAvatar.isSpeaking = isTeammateSpeaking;
+      renderPeers.push(remoteAvatar);
+
+      for (const [id, peer] of activePeers.entries()) {
+        if (id !== currentWorker.workerId && id !== remoteAvatar.id) {
+          renderPeers.push(peer);
+        }
+      }
+
+      // Draw acoustic connections to in-range peers
+      for (const peer of renderPeers) {
+        const px = peer.x !== undefined ? peer.x : 200;
+        const py = peer.y !== undefined ? peer.y : 200;
+        const dist = Math.hypot(px - avatar.x, py - avatar.y);
+
+        if (dist <= 120) {
+          const los = checkOcclusion(avatar, { x: px, y: py });
+          ctx.beginPath();
+          ctx.moveTo(avatar.x, avatar.y);
+          ctx.lineTo(px, py);
+          ctx.strokeStyle = los.occluded ? "rgba(245, 158, 11, 0.55)" : "rgba(16, 185, 129, 0.45)";
+          ctx.lineWidth = los.occluded ? 2.5 : 1.5;
+          ctx.setLineDash([4, 4]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
 
       // 5. 100-pixel earshot radius circle around local avatar
       ctx.beginPath();
       ctx.arc(avatar.x, avatar.y, 100, 0, Math.PI * 2);
       ctx.fillStyle = "rgba(37, 99, 235, 0.12)";
       ctx.fill();
-      ctx.strokeStyle = "rgba(37, 99, 235, 0.55)";
+      ctx.strokeStyle = "rgba(37, 99, 235, 0.6)";
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      // 6. Local Avatar (Using Current Registered Worker's Color & Name)
+      // 6. Local Avatar
       drawPillLabel(avatar.x, avatar.y - 18, currentWorker.name, currentWorker.department);
 
       ctx.beginPath();
@@ -1213,63 +1391,67 @@
       ctx.stroke();
 
       // Worker Initials
-      const initials = currentWorker.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+      const initials = (currentWorker.name || 'W').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
       ctx.fillStyle = "#ffffff";
       ctx.font = "bold 11px Arial";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(initials, avatar.x, avatar.y);
 
-      // 7. Remote Teammate Avatar
-      drawPillLabel(remoteAvatar.x, remoteAvatar.y - 18, remoteAvatar.name, remoteAvatar.role);
-
-      ctx.beginPath();
-      ctx.arc(remoteAvatar.x, remoteAvatar.y, remoteAvatar.radius, 0, Math.PI * 2);
-      ctx.fillStyle = remoteAvatar.color || "#16a34a";
-      ctx.fill();
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 3;
-      ctx.stroke();
-
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 11px Arial";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("TM", remoteAvatar.x, remoteAvatar.y);
-
-      // Speaking pulse ring
-      if (isTeammateSpeaking) {
+      // Speaking pulse ring for local user when not muted
+      if (!isMuted) {
         ctx.beginPath();
-        ctx.arc(remoteAvatar.x, remoteAvatar.y, remoteAvatar.radius + 6, 0, Math.PI * 2);
-        ctx.strokeStyle = "#22c55e";
-        ctx.lineWidth = 3;
+        ctx.arc(avatar.x, avatar.y, avatar.radius + 5, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(56, 189, 248, 0.6)";
+        ctx.lineWidth = 2;
         ctx.stroke();
       }
 
-      // 8. Render additional active peers from Backend
-      for (const [peerId, peer] of activePeers.entries()) {
-        if (peerId === remoteAvatar.id || peerId === currentWorker.workerId) continue;
-        const px = peer.x || peer.longitude || 200;
-        const py = peer.y || peer.latitude || 200;
-        const peerName = peer.name || peerId;
-        const peerColor = peer.avatarColor || "#8b5cf6";
+      // 7. Render Remote Pe置き / Teammates
+      for (const peer of renderPeers) {
+        const px = peer.x !== undefined ? peer.x : 200;
+        const py = peer.y !== undefined ? peer.y : 200;
+        const peerName = peer.name || peer.id || peer.userId || 'Teammate';
+        const peerColor = peer.avatarColor || peer.color || '#16a34a';
+        const dist = Math.hypot(px - avatar.x, py - avatar.y);
+        const inRange = dist <= 100;
 
         drawPillLabel(px, py - 18, peerName, peer.department || "Teammate");
 
+        // Earshot proximity ring around peer if in range
+        if (inRange) {
+          ctx.beginPath();
+          ctx.arc(px, py, 26, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(16, 185, 129, 0.15)";
+          ctx.fill();
+          ctx.strokeStyle = "#10b981";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+
         ctx.beginPath();
-        ctx.arc(px, py, 14, 0, Math.PI * 2);
+        ctx.arc(px, py, peer.radius || 16, 0, Math.PI * 2);
         ctx.fillStyle = peerColor;
         ctx.fill();
         ctx.strokeStyle = "#ffffff";
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.stroke();
 
         const pInitials = peerName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
         ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 10px Arial";
+        ctx.font = "bold 11px Arial";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(pInitials, px, py);
+
+        // Speaking pulse ring
+        if (peer.isSpeaking) {
+          ctx.beginPath();
+          ctx.arc(px, py, (peer.radius || 16) + 6, 0, Math.PI * 2);
+          ctx.strokeStyle = "#22c55e";
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+        }
       }
     }
 
@@ -1279,12 +1461,22 @@
       requestAnimationFrame(gameLoop);
     }
 
-    // --- Input Event Listeners ---
+    // --- Input Event Listeners (Unblocked & Keyboard-Responsive) ---
     window.addEventListener("keydown", (e) => {
-      // Don't move avatar if typing in registration input
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+      // Only block movement keys if user is actively typing in the login modal input!
+      const modal = document.getElementById('loginModal');
+      const isModalOpen = modal && !modal.classList.contains('hidden');
+      if (isModalOpen && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) {
+        return;
+      }
 
       const k = e.key.toLowerCase();
+
+      // Prevent window scrolling on arrow keys and spacebar
+      if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(k)) {
+        e.preventDefault();
+      }
+
       keys[k] = true;
 
       if (k === "m") {
@@ -1292,6 +1484,7 @@
         const btn = document.getElementById("btnToggleMute");
         btn.textContent = isMuted ? "🔇 Mic Muted" : "🎤 Mic On";
         btn.className = `btn ${isMuted ? "btn-mic-off" : "btn-mic-on"}`;
+        broadcastPresence('peer:move');
       }
 
       if (k === "t") {
@@ -1305,18 +1498,32 @@
       keys[e.key.toLowerCase()] = false;
     });
 
+    // Canvas click-to-move with accurate viewport scaling
     canvas.addEventListener("click", (e) => {
+      canvas.focus(); // Grab keyboard focus immediately
       const rect = canvas.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const clickY = e.clientY - rect.top;
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const clickX = (e.clientX - rect.left) * scaleX;
+      const clickY = (e.clientY - rect.top) * scaleY;
 
       if (!isBlocked(clickX, clickY)) {
         target = { x: clickX, y: clickY };
       }
     });
 
+    // Make canvas focusable on click anywhere on document
+    document.addEventListener("click", (e) => {
+      const modal = document.getElementById('loginModal');
+      const isModalOpen = modal && !modal.classList.contains('hidden');
+      if (!isModalOpen && e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
+        canvas.focus();
+      }
+    });
+
     document.getElementById("btnAudioContext").addEventListener("click", () => {
       initAudioContext();
+      canvas.focus();
     });
 
     document.getElementById("btnToggleMute").addEventListener("click", () => {
@@ -1324,12 +1531,15 @@
       const btn = document.getElementById("btnToggleMute");
       btn.textContent = isMuted ? "🔇 Mic Muted" : "🎤 Mic On";
       btn.className = `btn ${isMuted ? "btn-mic-off" : "btn-mic-on"}`;
+      broadcastPresence('peer:move');
+      canvas.focus();
     });
 
     document.getElementById("btnToggleSpeak").addEventListener("click", () => {
       isTeammateSpeaking = !isTeammateSpeaking;
       document.getElementById("btnToggleSpeak").textContent = 
         isTeammateSpeaking ? "Teammate Speaking (T)" : "Teammate Silent (T)";
+      canvas.focus();
     });
 
     // --- Bootstrapping on Page Load ---
@@ -1344,6 +1554,8 @@
         document.getElementById('loginModal').classList.add('hidden');
         initAudioContext();
         scheduleLocationSync();
+        broadcastPresence('peer:announce');
+        canvas.focus();
       }
 
       // Start 60 FPS Render loop

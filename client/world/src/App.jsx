@@ -173,12 +173,27 @@ function App() {
     }
 
     function tryMove(dx, dy) {
-      const nextX = Math.max(avatar.radius, Math.min(canvas.width - avatar.radius, avatar.x + dx));
-      const nextY = Math.max(avatar.radius, Math.min(canvas.height - avatar.radius, avatar.y + dy));
+      const nextX = Math.max(avatar.radius + 20, Math.min(canvas.width - avatar.radius - 20, avatar.x + dx));
+      const nextY = Math.max(avatar.radius + 20, Math.min(canvas.height - avatar.radius - 20, avatar.y + dy));
 
       if (!isBlocked(nextX, nextY)) {
         avatar.x = nextX;
         avatar.y = nextY;
+        syncLocation();
+        return true;
+      }
+
+      // Corner & wall sliding: test X-only and Y-only
+      let moved = false;
+      if (dx !== 0 && !isBlocked(nextX, avatar.y)) {
+        avatar.x = nextX;
+        moved = true;
+      }
+      if (dy !== 0 && !isBlocked(avatar.x, nextY)) {
+        avatar.y = nextY;
+        moved = true;
+      }
+      if (moved) {
         syncLocation();
         return true;
       }
