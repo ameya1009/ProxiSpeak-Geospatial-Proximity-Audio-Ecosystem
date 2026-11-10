@@ -1026,8 +1026,8 @@
 
     // Smooth movement with wall & desk corner sliding
     function tryMove(dx, dy) {
-      const nextX = Math.max(avatar.radius + 20, Math.min(canvas.width - avatar.radius - 20, avatar.x + dx));
-      const nextY = Math.max(avatar.radius + 20, Math.min(canvas.height - avatar.radius - 20, avatar.y + dy));
+      const nextX = Math.max(avatar.radius, Math.min(canvas.width - avatar.radius, avatar.x + dx));
+      const nextY = Math.max(avatar.radius, Math.min(canvas.height - avatar.radius, avatar.y + dy));
 
       if (!isBlocked(nextX, nextY)) {
         avatar.x = nextX;
@@ -1293,7 +1293,11 @@
       // Dark background pill
       ctx.fillStyle = "rgba(15, 23, 42, 0.88)";
       ctx.beginPath();
-      ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 5);
+      if (ctx.roundRect) {
+        ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 5);
+      } else {
+        ctx.rect(boxX, boxY, boxWidth, boxHeight);
+      }
       ctx.fill();
       ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
       ctx.lineWidth = 1;
@@ -1379,6 +1383,20 @@
       ctx.lineWidth = 2;
       ctx.stroke();
 
+      // Click target destination indicator
+      if (target) {
+        ctx.beginPath();
+        ctx.arc(target.x, target.y, 7, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(56, 189, 248, 0.8)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(target.x, target.y, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = "#38bdf8";
+        ctx.fill();
+      }
+
       // 6. Local Avatar
       drawPillLabel(avatar.x, avatar.y - 18, currentWorker.name, currentWorker.department);
 
@@ -1407,7 +1425,7 @@
         ctx.stroke();
       }
 
-      // 7. Render Remote Pe置き / Teammates
+      // 7. Render Remote Peers & Teammates
       for (const peer of renderPeers) {
         const px = peer.x !== undefined ? peer.x : 200;
         const py = peer.y !== undefined ? peer.y : 200;
