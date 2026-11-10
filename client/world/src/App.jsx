@@ -1,10 +1,106 @@
-
 import { useEffect, useRef, useState } from "react";
+import { getProximityIntegration } from "./audioBridge";
 
 function App() {
   const canvasRef = useRef(null);
+  const integrationRef = useRef(null);
+  const remoteAvatarsRef = useRef([]);
 
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const [isAudioStarted, setIsAudioStarted] = useState(false);
+  const [audioError, setAudioError] = useState("");
+
+  const startAudio = async () => {
+    let integration = null;
+  try {
+    setAudioError("");
+
+    const Integration = getProximityIntegration();
+
+    if (!Integration) {
+      throw new Error("ProximityIntegration is not loaded");
+    }
+
+    integration = new Integration({
+      userId: crypto.randomUUID(),
+      roomId: "proxispeak-room",
+      initialPosition: { x: 400, y: 250 },
+      earshotRadius: 100,
+      leaveRadius: 120,
+    });
+    
+    // Add a teammate when they enter the earshot range
+integration.on("peer:enter", ({ peerId, position }) => {
+  const avatars = remoteAvatarsRef.current;
+
+  const existing = avatars.find((avatar) => avatar.name === peerId);
+
+  if (!existing) {
+    avatars.push({
+      x: position.x,
+      y: position.y,
+      radius: 15,
+      name: peerId,
+      isSpeaking: false,
+    });
+  }
+});
+
+// Update teammate position
+integration.on("peer:moved", ({ peerId, x, y, inRange }) => {
+  const avatar = remoteAvatarsRef.current.find(
+    (avatar) => avatar.name === peerId
+  );
+
+  if (avatar && inRange) {
+    avatar.x = x;
+    avatar.y = y;
+  }
+});
+
+// Remove teammate when they leave earshot
+integration.on("peer:leave", ({ peerId }) => {
+  remoteAvatarsRef.current = remoteAvatarsRef.current.filter(
+    (avatar) => avatar.name !== peerId
+  );
+});
+    await integration.webrtcManager.initLocalStream();
+
+    if (integration.mixer?.ctx?.state === "suspended") {
+      await integration.mixer.ctx.resume();
+    }
+
+    integrationRef.current = integration;
+    
+     console.log(
+  "AUDIO DEBUG:",
+  JSON.stringify(integration.mixer.getAllPeerStates(), null, 2)
+   );
+    console.log("AUDIO CONTEXT:", integration.mixer.ctx.state);
+    integration.start();
+    setTimeout(() => {
+  console.log(
+    "AUDIO DEBUG AFTER START:",
+    JSON.stringify(integration.mixer.getAllPeerStates(), null, 2)
+  );
+}, 2000);
+
+    setIsAudioStarted(true);
+    setIsMuted(false);
+} catch (error) {
+  console.error("Audio startup failed:", error);
+
+  if (integration) {
+    integration.destroy();
+  }
+
+  integrationRef.current = null;
+  setIsAudioStarted(false);
+  setIsMuted(true);
+
+  setAudioError(error.message || "Could not start audio");
+}
+};
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -17,22 +113,7 @@ function App() {
       speed: 4,
     };
 
-   const remoteAvatars = [
-  {
-    x: 600,
-    y: 250,
-    radius: 15,
-    name: "Teammate",
-    isSpeaking: true,
-   },
-  {
-    x: 500,
-    y: 180,
-    radius: 15,
-    name: "Teammate 2",
-    isSpeaking: false,
-  },
-];  
+   const remoteAvatars = remoteAvatarsRef.current;
 
 
     const keys = {};
@@ -45,6 +126,31 @@ function App() {
   { x: 100, y: 320, width: 120, height: 60 },
   { x: 550, y: 320, width: 120, height: 60 },
 ];
+
+const rooms = [
+     {
+        name: "MAIN HALL",
+        x: 20,
+        y: 20,
+        width: 760,
+        height: 220,
+      },
+    {
+      name: "THE LOUNGE",
+      x: 20,
+      y: 260,
+      width: 360,
+      height: 220,
+     },
+  {
+    name: "MEETING ROOM",
+    x: 400,
+    y: 260,
+    width: 380,
+    height: 220,
+  },
+];
+
 
 function isBlocked(x, y) {
 
@@ -84,6 +190,8 @@ function tryMove(dx, dy) {
   if (!isBlocked(nextX, nextY)) {
     avatar.x = nextX;
     avatar.y = nextY;
+    // Update position in the audio integration
+    integrationRef.current?.updateLocalPosition(avatar.x, avatar.y);
     return true;
   }
 
@@ -159,31 +267,7 @@ function handleKeyDown(event) {
       // Office floor
       ctx.fillStyle = "#e8f5e9";
       ctx.fillRect(0, 0, canvas.width, canvas.height);  
-            
-         // Office room sections
-     const rooms = [
-     {
-        name: "MAIN HALL",
-        x: 20,
-        y: 20,
-        width: 760,
-        height: 220,
-      },
-    {
-      name: "THE LOUNGE",
-      x: 20,
-      y: 260,
-      width: 360,
-      height: 220,
-     },
-  {
-    name: "MEETING ROOM",
-    x: 400,
-    y: 260,
-    width: 380,
-    height: 220,
-  },
-];
+     
 
 // Draw room boundaries and labels
 for (const room of rooms) {
@@ -313,13 +397,17 @@ for (const remoteAvatar of remoteAvatars) {
 
     gameLoop();
 
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-      canvas.removeEventListener('click', handleCanvasClick)
-      cancelAnimationFrame(animationId);
-    };
-  }, []);
+   return () => {
+  window.removeEventListener("keydown", handleKeyDown);
+  window.removeEventListener("keyup", handleKeyUp);
+  canvas.removeEventListener("click", handleCanvasClick);
+  cancelAnimationFrame(animationId);
+
+  integrationRef.current?.destroy();
+  integrationRef.current = null;
+  remoteAvatarsRef.current = [];
+  };
+   }, []);
 
   return (
     <main style={{ textAlign: "center", fontFamily: "Arial, sans-serif" }}>
@@ -339,21 +427,35 @@ for (const remoteAvatar of remoteAvatars) {
       />
 
         
-     <button
-       onClick={() => setIsMuted(!isMuted)}
-       style={{
-         padding: "10px 20px",
-         marginBottom: "20px",
-         borderRadius: "8px",
-         border: "none",
-         cursor: "pointer",
-         backgroundColor: isMuted ? "#dc2626" : "#16a34a",
-              color: "white",
-         fontSize: "16px",
-        }}
-        >
-        {isMuted ? "🔇 Mic Muted" : "🎤 Mic On"}
-     </button>
+    <button
+  onClick={() => {
+    if (!isAudioStarted) {
+      startAudio();
+      return;
+    }
+
+    const nextMuted = !isMuted;
+
+    integrationRef.current?.webrtcManager?.setMuted(nextMuted);
+    setIsMuted(nextMuted);
+  }}
+  style={{
+    padding: "10px 20px",
+    marginBottom: "20px",
+    borderRadius: "8px",
+    border: "none",
+    cursor: "pointer",
+    backgroundColor: isMuted ? "#dc2626" : "#16a34a",
+    color: "white",
+    fontSize: "16px",
+  }}
+>
+  {!isAudioStarted
+    ? "🎤 Enable Mic"
+    : isMuted
+      ? "🔇 Mic Muted"
+      : "🎤 Mic On"}
+</button>
 
     </main>
   );
