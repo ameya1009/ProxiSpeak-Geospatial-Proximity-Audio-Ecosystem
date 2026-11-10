@@ -17,6 +17,14 @@ const url = require('url');
 const { exec } = require('child_process');
 const { RoomRepository } = require('../server/geo/src/repository/roomRepo');
 const { PositionRepository } = require('../server/geo/src/repository/positionRepo');
+const {
+  registerWorker,
+  getWorker,
+  getAllWorkers,
+  saveLocation,
+  getAllLocations,
+  removeLocation
+} = require('../backend/models/userLocations');
 const { getHttpsOptions } = require('./generate_cert');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
@@ -234,6 +242,20 @@ function renderLandingPage(port, httpsPort = DEFAULT_HTTPS_PORT) {
       </div>
     </header>
 
+    <!-- PRIMARY CALL TO ACTION: Office Worker Registration & Virtual Floor -->
+    <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 2px solid #38bdf8; border-radius: 14px; padding: 1.75rem 2rem; margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.25rem; box-shadow: 0 10px 25px -5px rgba(56, 189, 248, 0.2);">
+      <div>
+        <span style="background: #0284c7; color: #fff; font-size: 0.72rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.05em;">Employee Onboarding & Floor</span>
+        <h2 style="font-size: 1.55rem; color: #f8fafc; margin: 0.4rem 0 0.3rem 0;">🏢 Virtual Office: Worker Login &amp; Floor</h2>
+        <p style="color: #94a3b8; font-size: 0.95rem; margin: 0; max-width: 580px;">Register your office worker profile (Name, Employee ID, Department, Avatar Color) and enter the 2D proximity audio office floor with coworkers.</p>
+      </div>
+      <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+        <a href="/office" class="btn" style="background: #38bdf8; color: #0b0f19; font-size: 1rem; padding: 0.85rem 1.6rem; font-weight: 800; border-radius: 8px; text-decoration: none; box-shadow: 0 4px 14px rgba(56, 189, 248, 0.4);">
+          🚀 Launch Office Floor &amp; Worker Login ➔
+        </a>
+      </div>
+    </div>
+
     <div class="grid">
       <!-- 1. Ameya's Audio Mesh & Two-Browser Simulator -->
       <div class="card">
@@ -400,6 +422,116 @@ function createRequestHandler(port, httpsPort) {
       return res.end(renderLandingPage(port, httpsPort));
     }
 
+    // Direct /office route -> Serves the 2D Virtual World with Worker Login & Registration
+    if (pathname === '/office') {
+      const officeHtmlPath = path.join(ROOT_DIR, 'client', 'world', 'standalone.html');
+      fs.readFile(officeHtmlPath, 'utf8', (err, content) => {
+        if (err) {
+          res.writeHead(500, { 'Content-Type': 'text/plain' });
+          return res.end('Error loading office world');
+        }
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(content);
+      });
+      return;
+    }
+
+    // --- Office Worker Authentication & Registration Endpoints ---
+    if (pathname === '/api/auth/register' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => {
+        try {
+          const data = JSON.parse(body || '{}');
+          if (!data.name || data.name.trim() === '') {
+            res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+            return res.end(JSON.stringify({ success: false, message: 'Worker name is required' }));
+          }
+          const worker = registerWorker(data);
+          res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8' });
+          return res.end(JSON.stringify({
+            success: true,
+            message: 'Office worker registered successfully',
+            worker
+          }));
+        } catch (e) {
+          res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+          return res.end(JSON.stringify({ success: false, message: e.message }));
+        }
+      });
+      return;
+    }
+
+    if (pathname === '/api/auth/login' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => {
+        try {
+          const data = JSON.parse(body || '{}');
+          let worker = null;
+          if (data.workerId) {
+            worker = getWorker(data.workerId);
+          }
+          if (!worker && data.name) {
+            const all = getAllWorkers();
+            worker = all.find(w => w.name.toLowerCase() === data.name.trim().toLowerCase() || w.workerId.toLowerCase() === data.name.trim().toLowerCase());
+            if (!worker) {
+              worker = registerWorker({
+                name: data.name.trim(),
+                department: data.department || 'Engineering',
+                avatarColor: data.avatarColor || '#0284c7'
+              });
+            }
+          }
+          if (!worker) {
+            res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+            return res.end(JSON.stringify({ success: false, message: 'Worker profile not found. Please register first.' }));
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          return res.end(JSON.stringify({
+            success: true,
+            message: `Welcome to the office, ${worker.name}!`,
+            worker
+          }));
+        } catch (e) {
+          res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+          return res.end(JSON.stringify({ success: false, message: e.message }));
+        }
+      });
+      return;
+    }
+
+    if (pathname === '/api/auth/workers' && req.method === 'GET') {
+      const workers = getAllWorkers();
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      return res.end(JSON.stringify({
+        success: true,
+        count: workers.length,
+        workers
+      }));
+    }
+
+    if (pathname === '/api/auth/logout' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => {
+        try {
+          const data = JSON.parse(body || '{}');
+          const targetId = data.userId || data.workerId;
+          if (targetId) {
+            removeLocation(targetId);
+            delete userLocations[targetId];
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          return res.end(JSON.stringify({ success: true, message: 'Logged out from office floor' }));
+        } catch (e) {
+          res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+          return res.end(JSON.stringify({ success: false, message: e.message }));
+        }
+      });
+      return;
+    }
+
     // --- Abhishek's Backend API Routes ---
     if (pathname === '/api/backend' || pathname === '/api') {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -411,7 +543,8 @@ function createRequestHandler(port, httpsPort) {
     }
 
     if (pathname === '/api/users/locations' && req.method === 'GET') {
-      const locations = Object.values(userLocations);
+      const roomId = parsedUrl.query.roomId || null;
+      const locations = getAllLocations(roomId);
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       return res.end(JSON.stringify({
         success: true,
@@ -431,15 +564,11 @@ function createRequestHandler(port, httpsPort) {
           const posX = data.x !== undefined ? Number(data.x) : (data.longitude !== undefined ? Number(data.longitude) : 200);
           const posY = data.y !== undefined ? Number(data.y) : (data.latitude !== undefined ? Number(data.latitude) : 200);
 
-          const record = {
-            userId,
-            roomId,
-            x: posX,
-            y: posY,
-            longitude: posX,
-            latitude: posY,
-            updatedAt: new Date().toISOString()
-          };
+          const record = saveLocation(userId, posX, posY, roomId, {
+            name: data.name,
+            department: data.department,
+            avatarColor: data.avatarColor
+          });
           userLocations[userId] = record;
 
           // Wire directly to MongoDB PositionRepository (Milind's Geospatial Engine)

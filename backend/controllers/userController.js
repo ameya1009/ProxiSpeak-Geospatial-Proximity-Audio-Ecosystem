@@ -17,7 +17,7 @@ const {
  * Updates avatar location supporting both (x, y) Cartesian and (latitude, longitude)
  */
 const updateLocation = (req, res) => {
-  const { userId, x, y, latitude, longitude, roomId } = req.body;
+  const { userId, x, y, latitude, longitude, roomId, name, department, avatarColor } = req.body;
 
   // Resolve coordinates
   const posX = x !== undefined ? x : longitude;
@@ -30,7 +30,11 @@ const updateLocation = (req, res) => {
     });
   }
 
-  const record = saveLocation(userId, posX, posY, roomId || "default-office");
+  const record = saveLocation(userId, posX, posY, roomId || "default-office", {
+    name,
+    department,
+    avatarColor
+  });
 
   return res.status(200).json({
     success: true,

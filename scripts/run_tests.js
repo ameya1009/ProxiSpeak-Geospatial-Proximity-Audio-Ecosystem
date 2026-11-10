@@ -1225,6 +1225,63 @@ async function runFullStackEcosystemIntegrationTest() {
   console.log('✔ Test 31: Full-Stack Integration (Frontend Canvas ⇄ Backend API ⇄ MongoDB Geospatial ⇄ Spatial Audio): OK');
 }
 
+// --- Test 32: Office Worker Registration & Authentication System ---
+async function runWorkerRegistrationAndAuthTest() {
+  const {
+    registerWorker,
+    getWorker,
+    getAllWorkers,
+    saveLocation,
+    getAllLocations,
+    removeLocation
+  } = require('../backend/models/userLocations');
+
+  // 1. Verify default team roster pre-registration
+  const workers = getAllWorkers();
+  assert.ok(workers.length >= 4, 'Pre-registers official team members');
+  const ameya = workers.find(w => w.name.includes('Ameya'));
+  assert.ok(ameya, 'Pre-registers Team Lead Ameya');
+  assert.strictEqual(ameya.workerId, 'EMP-001');
+  assert.strictEqual(ameya.avatarColor, '#0284c7');
+
+  // 2. Register custom office worker
+  const newWorker = registerWorker({
+    workerId: 'EMP-777',
+    name: 'Dr. Evelyn Reed',
+    email: 'evelyn@proxispeak.io',
+    department: 'Audio DSP & Research',
+    avatarColor: '#f43f5e'
+  });
+  assert.strictEqual(newWorker.workerId, 'EMP-777');
+  assert.strictEqual(newWorker.name, 'Dr. Evelyn Reed');
+  assert.strictEqual(newWorker.avatarColor, '#f43f5e');
+
+  const retrieved = getWorker('EMP-777');
+  assert.strictEqual(retrieved.name, 'Dr. Evelyn Reed');
+
+  // 3. Save location with metadata and verify in getAllLocations
+  const posRecord = saveLocation('EMP-777', 350, 220, 'default-office', {
+    name: newWorker.name,
+    department: newWorker.department,
+    avatarColor: newWorker.avatarColor
+  });
+  assert.strictEqual(posRecord.userId, 'EMP-777');
+  assert.strictEqual(posRecord.name, 'Dr. Evelyn Reed');
+  assert.strictEqual(posRecord.avatarColor, '#f43f5e');
+
+  const activePeers = getAllLocations('default-office');
+  const peer = activePeers.find(p => p.userId === 'EMP-777');
+  assert.ok(peer, 'Discovers registered worker in active office room');
+  assert.strictEqual(peer.name, 'Dr. Evelyn Reed');
+
+  // 4. Logout / Eviction
+  removeLocation('EMP-777');
+  const afterLogout = getAllLocations('default-office');
+  assert.ok(!afterLogout.find(p => p.userId === 'EMP-777'), 'Worker evicted upon logout');
+
+  console.log('✔ Test 32: Office Worker Registration, Profile Management & Onboarding Flow: OK');
+}
+
 async function runAll() {
   await runWebRTCLifecycleTest();
   await runProximityIntegrationTest();
@@ -1244,7 +1301,8 @@ async function runAll() {
   runHttpsCertificateTest();
   runLoadTestHarnessTest();
   await runFullStackEcosystemIntegrationTest();
-  console.log('\nAll 31 audio spike, SpatialAudioMixer, 3D HRTF, WebRTCManager, ProximityIntegration, DistanceGainNode, ConnectionCapper, ObstacleAttenuation, Geospatial Engine, HTTPS, Load Test, and Full-Stack Integration assertions passed cleanly.');
+  await runWorkerRegistrationAndAuthTest();
+  console.log('\nAll 32 audio spike, SpatialAudioMixer, 3D HRTF, WebRTCManager, ProximityIntegration, DistanceGainNode, ConnectionCapper, ObstacleAttenuation, Geospatial Engine, HTTPS, Load Test, Full-Stack Integration, and Office Worker Registration assertions passed cleanly.');
 }
 
 runAll().catch((err) => {
