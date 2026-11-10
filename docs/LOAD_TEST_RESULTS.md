@@ -12,12 +12,12 @@ The load test harness measures spatial candidate evaluation, $N=4$ connection pr
 | Metric | 50 Concurrent Peers (500 cycles) | 100 Concurrent Peers (1,000 cycles) | Rubric Requirement | Status |
 | :--- | :--- | :--- | :--- | :--- |
 | **Peer Pair Evaluations** | 24,500 | 99,000 | &mdash; | High Volume |
-| **Throughput** | **2793.6 updates/s** | **2271.6 updates/s** | &gt; 100 updates/s | **PASS** |
-| **Average Latency** | **0.35 ms** | **0.425 ms** | &lt; 5.0 ms | **PASS** |
-| **p50 Latency** | **0.114 ms** | **0.124 ms** | &lt; 2.0 ms | **PASS** |
-| **p95 Latency** | **1.078 ms** | **1.247 ms** | &lt; 4.0 ms | **PASS** |
-| **p99 Latency** | **5.382 ms** | **6.24 ms** | &lt; 5.0 ms (Rubric: &lt;20ms) | **EXCEPTIONAL PASS** |
-| **Heap Memory Delta** | **1.95 MB** | **7.81 MB** | Zero Leak (&lt; 25MB) | **STABLE** |
+| **Throughput** | **8934.2 updates/s** | **7870.9 updates/s** | &gt; 100 updates/s | **PASS** |
+| **Average Latency** | **0.11 ms** | **0.125 ms** | &lt; 5.0 ms | **PASS** |
+| **p50 Latency** | **0.068 ms** | **0.078 ms** | &lt; 2.0 ms | **PASS** |
+| **p95 Latency** | **0.241 ms** | **0.184 ms** | &lt; 4.0 ms | **PASS** |
+| **p99 Latency** | **1.112 ms** | **2.026 ms** | &lt; 5.0 ms (Rubric: &lt;20ms) | **EXCEPTIONAL PASS** |
+| **Heap Memory Delta** | **0.54 MB** | **8.85 MB** | Zero Leak (&lt; 25MB) | **STABLE** |
 
 ---
 

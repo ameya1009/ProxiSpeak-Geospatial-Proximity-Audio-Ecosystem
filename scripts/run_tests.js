@@ -1180,6 +1180,51 @@ function runLoadTestHarnessTest() {
   console.log('✔ Task A11: 50 & 100 concurrent peer load test harness, p99 < 25ms rubric & memory leak safety: OK');
 }
 
+// --- Test 31: Full-Stack Ecosystem Integration (Frontend, Backend, Database & Audio) ---
+async function runFullStackEcosystemIntegrationTest() {
+  const { saveLocation, getAllLocations } = require('../backend/models/userLocations');
+  const { PositionRepository } = require('../server/geo/src/repository/positionRepo');
+  const { calculateDistance, calculateGain, calculatePan } = require('../client/audio/src/AudioMixer');
+  const { ObstacleAttenuation } = require('../client/audio/src/ObstacleAttenuation');
+
+  // 1. Backend REST Model validation
+  const u1 = saveLocation('avatar_1', 400, 250, 'default-office');
+  const u2 = saveLocation('avatar_2', 460, 250, 'default-office');
+  assert.strictEqual(u1.x, 400, 'Backend model stores avatar 1 X coordinate');
+  assert.strictEqual(u2.x, 460, 'Backend model stores avatar 2 X coordinate');
+  const all = getAllLocations('default-office');
+  assert.ok(all.length >= 2, 'Backend model retrieves all active room users');
+
+  // 2. Geospatial Database Engine synchronization
+  const posRepo = new PositionRepository();
+  await posRepo.upsertPosition(u1.userId, u1.roomId, [u1.x, u1.y]);
+  await posRepo.upsertPosition(u2.userId, u2.roomId, [u2.x, u2.y]);
+
+  const nearby = await posRepo.nearby('default-office', [400, 250], 100);
+  assert.strictEqual(nearby.length, 2, 'MongoDB 2D $near query discovers teammate within 100px earshot');
+  assert.strictEqual(nearby[1].userId, 'avatar_2', 'Discovers avatar_2 as nearest peer');
+
+  // 3. Audio Engine Spatialization
+  const d = calculateDistance({ x: u1.x, y: u1.y }, { x: u2.x, y: u2.y });
+  assert.strictEqual(d, 60, 'Distance calculates 60px between avatars');
+
+  const gain = calculateGain(d, 100);
+  assert.strictEqual(gain, 0.4, 'Inverse distance gain curve yields 40% (0.40)');
+
+  const pan = calculatePan(u2.x - u1.x, 100);
+  assert.strictEqual(pan, 0.6, 'Stereo panning calculates +0.60 (right ear)');
+
+  // 4. Acoustic Obstacle Occlusion
+  const attenuator = new ObstacleAttenuation();
+  const obstacles = [{ id: 'desk-test', x: 420, y: 220, width: 20, height: 60, type: 'desk', acousticAttenuationDb: 6.0 }];
+  const los = attenuator.analyzeLineOfSight({ x: u1.x, y: u1.y }, { x: u2.x, y: u2.y }, obstacles);
+  assert.strictEqual(los.occluded, true, 'Ray caster detects obstacle intersection between avatars');
+  assert.strictEqual(los.totalLossDb, 6.0, 'Applies -6dB desk acoustic loss');
+  assert.ok(los.cutoffFrequencyHz < 1000, `Muffles sound via low-pass filter (${los.cutoffFrequencyHz}Hz)`);
+
+  console.log('✔ Test 31: Full-Stack Integration (Frontend Canvas ⇄ Backend API ⇄ MongoDB Geospatial ⇄ Spatial Audio): OK');
+}
+
 async function runAll() {
   await runWebRTCLifecycleTest();
   await runProximityIntegrationTest();
@@ -1198,7 +1243,8 @@ async function runAll() {
   await runRoomObstacleExposureTest();
   runHttpsCertificateTest();
   runLoadTestHarnessTest();
-  console.log('\nAll 30 audio spike, SpatialAudioMixer, 3D HRTF, WebRTCManager, ProximityIntegration, DistanceGainNode, ConnectionCapper, ObstacleAttenuation, Geospatial Engine, HTTPS, and Load Test assertions passed cleanly.');
+  await runFullStackEcosystemIntegrationTest();
+  console.log('\nAll 31 audio spike, SpatialAudioMixer, 3D HRTF, WebRTCManager, ProximityIntegration, DistanceGainNode, ConnectionCapper, ObstacleAttenuation, Geospatial Engine, HTTPS, Load Test, and Full-Stack Integration assertions passed cleanly.');
 }
 
 runAll().catch((err) => {

@@ -16,6 +16,7 @@ const path = require('path');
 const url = require('url');
 const { exec } = require('child_process');
 const { RoomRepository } = require('../server/geo/src/repository/roomRepo');
+const { PositionRepository } = require('../server/geo/src/repository/positionRepo');
 const { getHttpsOptions } = require('./generate_cert');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
@@ -24,8 +25,9 @@ const DEFAULT_HTTPS_PORT = process.env.HTTPS_PORT ? parseInt(process.env.HTTPS_P
 
 // In-memory user locations store (Abhishek's backend state)
 const userLocations = {};
-// Geospatial Room Repository (Milind's transferred Task M8)
+// Geospatial Repositories (Milind's transferred Tasks M2 & M8)
 const roomRepo = new RoomRepository();
+const positionRepo = new PositionRepository();
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -421,30 +423,64 @@ function createRequestHandler(port, httpsPort) {
     if (pathname === '/api/users/location' && req.method === 'POST') {
       let body = '';
       req.on('data', chunk => { body += chunk; });
-      req.on('end', () => {
+      req.on('end', async () => {
         try {
           const data = JSON.parse(body || '{}');
           const userId = data.userId || 'user_' + Date.now();
-          const lat = data.latitude !== undefined ? Number(data.latitude) : (data.y || 200);
-          const lng = data.longitude !== undefined ? Number(data.longitude) : (data.x || 200);
-          userLocations[userId] = {
+          const roomId = data.roomId || 'default-office';
+          const posX = data.x !== undefined ? Number(data.x) : (data.longitude !== undefined ? Number(data.longitude) : 200);
+          const posY = data.y !== undefined ? Number(data.y) : (data.latitude !== undefined ? Number(data.latitude) : 200);
+
+          const record = {
             userId,
-            latitude: lat,
-            longitude: lng,
-            x: data.x || lng,
-            y: data.y || lat,
+            roomId,
+            x: posX,
+            y: posY,
+            longitude: posX,
+            latitude: posY,
             updatedAt: new Date().toISOString()
           };
+          userLocations[userId] = record;
+
+          // Wire directly to MongoDB PositionRepository (Milind's Geospatial Engine)
+          try {
+            await positionRepo.upsertPosition(userId, roomId, [posX, posY]);
+          } catch (geoErr) {
+            // Keep going with cached record
+          }
+
           res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
           return res.end(JSON.stringify({
             success: true,
             message: "User location updated successfully",
-            data: userLocations[userId]
+            data: record
           }));
         } catch (e) {
           res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
           return res.end(JSON.stringify({ success: false, message: e.message }));
         }
+      });
+      return;
+    }
+
+    // --- Geospatial Query: Nearby Users via MongoDB 2D Indexing ($near) ---
+    if (pathname === '/api/users/nearby' && req.method === 'GET') {
+      const q = parsedUrl.query;
+      const x = Number(q.x || 0);
+      const y = Number(q.y || 0);
+      const maxDist = Number(q.maxDistance || 100);
+      const roomId = q.roomId || 'default-office';
+
+      positionRepo.nearby(roomId, [x, y], maxDist).then(nearbyUsers => {
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        return res.end(JSON.stringify({
+          success: true,
+          count: nearbyUsers.length,
+          data: nearbyUsers
+        }));
+      }).catch(err => {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        return res.end(JSON.stringify({ success: false, error: err.message }));
       });
       return;
     }
