@@ -96,6 +96,7 @@ function App() {
       }
 
       integrationRef.current = integration;
+      window.debugIntegration = integration;
       integration.start();
 
       setIsAudioStarted(true);
@@ -305,36 +306,45 @@ function App() {
         }}
       />
 
-      <button
-        onClick={() => {
-          if (!isAudioStarted) {
-            startAudio();
-            return;
-          }
+     <button
+  onClick={() => {
+    if (!isAudioStarted) {
+      startAudio();
+      return;
+    }
 
-          const nextMuted = !isMuted;
-          if (integrationRef.current?.webrtcManager) {
-            integrationRef.current.webrtcManager.setMuted(nextMuted);
-          }
-          setIsMuted(nextMuted);
-        }}
-        style={{
-          padding: "10px 20px",
-          marginBottom: "20px",
-          borderRadius: "8px",
-          border: "none",
-          cursor: "pointer",
-          backgroundColor: isMuted ? "#dc2626" : "#16a34a",
-          color: "white",
-          fontSize: "16px",
-        }}
-      >
-        {!isAudioStarted
-          ? "🎤 Enable Mic"
-          : isMuted
-            ? "🔇 Mic Muted"
-            : "🎤 Mic On"}
-      </button>
+    const nextMuted = !isMuted;
+    
+    // Force the local audio stream tracks to enable/unmute when toggling
+    if (integrationRef.current?.webrtcManager?.localStream) {
+      integrationRef.current.webrtcManager.localStream.getAudioTracks().forEach(track => {
+        track.enabled = !nextMuted;
+      });
+    }
+
+    if (integrationRef.current?.webrtcManager) {
+      integrationRef.current.webrtcManager.setMuted(nextMuted);
+    }
+    setIsMuted(nextMuted);
+  }}
+  style={{
+    padding: "10px 20px",
+    marginBottom: "20px",
+    borderRadius: "8px",
+    border: "none",
+    cursor: "pointer",
+    backgroundColor: isMuted ? "#dc2626" : "#16a34a",
+    color: "white",
+    fontSize: "16px",
+  }}
+>
+  {!isAudioStarted
+    ? "🎤 Enable Mic"
+    : isMuted
+      ? "🔇 Mic Muted"
+      : "🎤 Mic On"}
+</button>
+
     </main>
   );
 }
