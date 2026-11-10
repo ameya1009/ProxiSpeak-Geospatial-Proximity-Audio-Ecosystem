@@ -416,14 +416,8 @@ function createRequestHandler(port, httpsPort) {
     const parsedUrl = url.parse(req.url, true);
     let pathname = decodeURIComponent(parsedUrl.pathname);
 
-    // Root route -> Portal
-    if (pathname === '/' || pathname === '/index.html') {
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      return res.end(renderLandingPage(port, httpsPort));
-    }
-
-    // Direct /office route -> Serves the 2D Virtual World with Worker Login & Registration
-    if (pathname === '/office') {
+    // Root route and /office -> Serves the 2D Virtual World with Worker Login & Registration
+    if (pathname === '/' || pathname === '/office') {
       const officeHtmlPath = path.join(ROOT_DIR, 'client', 'world', 'standalone.html');
       fs.readFile(officeHtmlPath, 'utf8', (err, content) => {
         if (err) {
@@ -434,6 +428,12 @@ function createRequestHandler(port, httpsPort) {
         return res.end(content);
       });
       return;
+    }
+
+    // /hub or /portal -> Multi-Branch Architecture & Diagnostics Hub
+    if (pathname === '/hub' || pathname === '/portal' || pathname === '/index.html') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      return res.end(renderLandingPage(port, httpsPort));
     }
 
     // --- Office Worker Authentication & Registration Endpoints ---
