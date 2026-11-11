@@ -1,87 +1,106 @@
-// Store user locations temporarily in memory
-const userLocations = {};
 
-// Update user location
-const updateLocation = (req, res) => {
-    const { userId, latitude, longitude } = req.body;
+/**
+ * ProxiSpeak User Controller
+ * Redis-backed 2D canvas location operations.
+ */
 
-    // Validate required fields
-    if (
-        !userId ||
-        latitude === undefined ||
-        longitude === undefined
-    ) {
-        return res.status(400).json({
+const {
+    saveLocation,
+    getAllLocations
+} = require("../models/userLocations");
+
+const updateLocation = async (req, res) => {
+    try {
+        const {
+            userId,
+            x,
+            y,
+            roomId = "main-hall"
+        } = req.body || {};
+
+        if (
+            typeof userId !== "string" ||
+            !userId.trim() ||
+           !Number.isInteger(x) ||
+        !Number.isInteger(y) ||
+        x < 0 || x >= 2000 ||
+        y < 0 || y >= 2000 ||
+            typeof roomId !== "string" ||
+            !roomId.trim()
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "userId, integer x, y and roomId are required"
+            });
+        }
+
+        const record = await saveLocation(userId, x, y, roomId);
+
+        return res.status(200).json({
+            success: true,
+            message: "User location updated successfully",
+            data: record
+        });
+    } catch (error) {
+        console.error("Location update error:", error);
+
+        return res.status(500).json({
             success: false,
-            message: "userId, latitude and longitude are required"
+            message: "Failed to update user location"
         });
     }
-
-    // Save user location
-    userLocations[userId] = {
-        userId: userId,
-        latitude: Number(latitude),
-        longitude: Number(longitude)
-    };
-
-    console.log(
-        "User location updated:",
-        userLocations[userId]
-    );
-
-    // Send response
-    return res.status(200).json({
-        success: true,
-        message: "User location updated successfully",
-        data: userLocations[userId]
-    });
 };
 
-// Get all user locations
-const getLocations = (req, res) => {
-    const locations = Object.values(userLocations);
+const getLocations = async (req, res) => {
+    try {
+        const roomId = req.query.roomId || null;
+        const locations = await getAllLocations(roomId);
 
-    console.log(
-        "All user locations:",
-        locations
-    );
+        return res.status(200).json({
+            success: true,
+            count: locations.length,
+            data: locations
+        });
+    } catch (error) {
+        console.error("Get locations error:", error);
 
-    return res.status(200).json({
-        success: true,
-        count: locations.length,
-        data: locations
-    });
+        return res.status(500).json({
+            success: false,
+            message: "Failed to retrieve locations"
+        });
+    }
 };
 
-// Find users within a given distance
-const nearby = (userId, radius = 100) => {
-    const currentUser = userLocations[userId];
-
-    if (!currentUser) {
+const nearby = async (userId, radius = 100, roomId = "main-hall") => {
+    if (
+        typeof userId !== "string" ||
+        !userId.trim() ||
+        !Number.isFinite(radius) ||
+        radius <= 0 ||
+        typeof roomId !== "string" ||
+        !roomId.trim()
+    ) {
         return [];
     }
 
-    return Object.values(userLocations).filter((user) => {
-        // Don't include the current user
-        if (user.userId === userId) {
-            return false;
-        }
+    const locations = await getAllLocations(roomId);
 
-        const dx =
-            user.latitude - currentUser.latitude;
+    const currentUser = locations.find(
+        user => user.userId === userId
+    );
 
-        const dy =
-            user.longitude - currentUser.longitude;
+    if (!currentUser) return [];
 
-        const distance = Math.sqrt(
-            (dx * dx) + (dy * dy)
-        );
+    return locations.filter(user => {
+        if (user.userId === userId) return false;
 
-        return distance <= radius;
+        return Math.hypot(
+            user.x - currentUser.x,
+            user.y - currentUser.y
+        ) <= radius;
     });
 };
 
-// Export controller functions
 module.exports = {
     updateLocation,
     getLocations,
